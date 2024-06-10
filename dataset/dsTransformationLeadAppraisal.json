@@ -1,0 +1,17 @@
+{
+	"name": "dsTransformationLeadAppraisal",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "WBYCDataExtractDB",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "appraisal_transformation"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

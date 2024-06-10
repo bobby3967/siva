@@ -1,0 +1,109 @@
+{
+	"name": "DFANCOMJSON",
+	"properties": {
+		"folder": {
+			"name": "WBYCDataExtract-JSON"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "dsJSONDestinationConditionReportStaging",
+						"type": "DatasetReference"
+					},
+					"name": "ConditionReportSource"
+				},
+				{
+					"dataset": {
+						"referenceName": "dsJSONDestinationTradeInVehicleDetailsStaging",
+						"type": "DatasetReference"
+					},
+					"name": "TradeInVehicleDetailsSource"
+				},
+				{
+					"dataset": {
+						"referenceName": "dsJSONDestinationAppraisalDetailsStaging",
+						"type": "DatasetReference"
+					},
+					"name": "AppraisalDetailsSource"
+				},
+				{
+					"dataset": {
+						"referenceName": "dsMessageLogFlattenStaging",
+						"type": "DatasetReference"
+					},
+					"name": "MessageLog"
+				},
+				{
+					"dataset": {
+						"referenceName": "dsJSONDestinationComapassLeadAppraisal",
+						"type": "DatasetReference"
+					},
+					"name": "Compass"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "dsTransformationLeadAppraisal",
+						"type": "DatasetReference"
+					},
+					"name": "TransformDestinationSink"
+				},
+				{
+					"dataset": {
+						"referenceName": "dsError",
+						"type": "DatasetReference"
+					},
+					"name": "ErrorSink"
+				}
+			],
+			"transformations": [
+				{
+					"name": "ConditionReportParse"
+				},
+				{
+					"name": "ConditionIndicatorFlatten"
+				},
+				{
+					"name": "NewIndicatorKeyDerivedColumn"
+				},
+				{
+					"name": "Pivot1"
+				},
+				{
+					"name": "ConditionReportJoin"
+				},
+				{
+					"name": "TradeInVehicleJoin"
+				},
+				{
+					"name": "AppraisalDetailsJoin"
+				},
+				{
+					"name": "DerivedColumn1"
+				},
+				{
+					"name": "DerivedColumn2"
+				},
+				{
+					"name": "DerivedColumn3"
+				},
+				{
+					"name": "Redirection"
+				},
+				{
+					"name": "DerivedColumn4"
+				},
+				{
+					"name": "MessageLogJoin"
+				},
+				{
+					"name": "CompassJoin"
+				}
+			],
+			"script": "source(output(\n\t\tId as long,\n\t\tAppraisalVehicleId as long,\n\t\tRequest as string,\n\t\tSource as string,\n\t\tCDKApprasialValue as decimal(19,4),\n\t\tCreateDate as timestamp,\n\t\tModifiedDate as timestamp,\n\t\tAppraisalId as long,\n\t\tMessageLogId as long,\n\t\tLeadId as long,\n\t\tHyperionId as long,\n\t\tBPOLAdjustedValue as long,\n\t\tANAdjustedValues as long,\n\t\tRuleExecuted as string,\n\t\tRunId as string,\n\t\tTransformation_Status as string\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tinferDriftedColumnTypes: true,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tquery: 'select * from [dbo].[temp_conditionreport_staging]',\n\tformat: 'query') ~> ConditionReportSource\nsource(output(\n\t\tId as long,\n\t\tMessageLogId as long,\n\t\tAppraisalVehicleId as long,\n\t\tYear as integer,\n\t\tMake as string,\n\t\tModel as string,\n\t\tTrim as string,\n\t\tExteriorColor as string,\n\t\tSeatColor as string,\n\t\tSeatMaterial as string,\n\t\tMileage as integer,\n\t\tOptions as string,\n\t\tZipCode as string,\n\t\tAllPostiveAnswers as string,\n\t\tCreateDate as timestamp,\n\t\tAdditionalDetails as string,\n\t\tVin as string,\n\t\tLeadId as long,\n\t\tHyperionId as long,\n\t\tChromeStyleId as long\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tquery: 'select * from dbo.temp_tradeInvehicledetails_staging where LeadId !=\\'\\'',\n\tformat: 'query') ~> TradeInVehicleDetailsSource\nsource(output(\n\t\tId as long,\n\t\tAppraisalVehicleId as long,\n\t\tWholesale as string,\n\t\tRetail as string,\n\t\tTradeIn as string,\n\t\tFinanceAdvance as decimal(19,4),\n\t\tResidual as decimal(19,4),\n\t\tHistoryAdjusted as decimal(19,4),\n\t\tValueAdjustment as decimal(19,4),\n\t\tCreateDate as timestamp,\n\t\tAdditionalDetails as string\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tformat: 'table') ~> AppraisalDetailsSource\nsource(output(\n\t\tMessageLogId as long,\n\t\tBBOL_Request as string,\n\t\tBBOL_Response as string,\n\t\tBBOL_Httpstatus as string,\n\t\tBBOL_Createdate as timestamp,\n\t\tBBOL_Tradeinvehicledetails as string,\n\t\tBBOL_Mileage_Whole_Xclean as string,\n\t\tBBOL_Add_Deduct_Whole_Xclean as string,\n\t\tBBOL_Regional_Whole_Xclean as string,\n\t\tBBOL_History_Whole_Xclean as string,\n\t\tBBOL_Non_History_Adjusted_Whole_Xclean as string,\n\t\tBBOL_History_Adjusted_Whole_Xclean as string,\n\t\tBBOL_Base_Whole_Clean as string,\n\t\tBBOL_Mileage_Whole_Clean as string,\n\t\tBBOL_Add_Deduct_Whole_Clean as string,\n\t\tBBOL_Regional_Whole_Clean as string,\n\t\tBBOL_History_Whole_Clean as string,\n\t\tBBOL_Non_History_Adjusted_Whole_Clean as string,\n\t\tBBOL_History_Adjusted_Whole_Clean as string,\n\t\tBBOL_Base_Whole_Avg as string,\n\t\tBBOL_Mileage_Whole_Avg as string,\n\t\tBBOL_Add_Deduct_Whole_Avg as string,\n\t\tBBOL_Regional_Whole_Avg as string,\n\t\tBBOL_History_Whole_Avg as string,\n\t\tBBOL_Non_History_Adjusted_Whole_Avg as string,\n\t\tBBOL_History_Adjusted_Whole_Avg as string,\n\t\tBBOL_Base_Whole_Rough as string,\n\t\tBBOL_Mileage_Whole_Rough as string,\n\t\tBBOL_Add_Deduct_Whole_Rough as string,\n\t\tBBOL_Regional_Whole_Rough as string,\n\t\tBBOL_History_Whole_Rough as string,\n\t\tBBOL_Non_History_Adjusted_Whole_Rough as string,\n\t\tBBOL_History_Adjusted_Whole_Rough as string,\n\t\tBBOL_Base_Retail_Xclean as string,\n\t\tBBOL_Mileage_Retail_Xclean as string,\n\t\tBBOL_Add_Deduct_Retail_Xclean as string,\n\t\tBBOL_Regional_Retail_Xclean as string,\n\t\tBBOL_History_Retail_Xclean as string,\n\t\tBBOL_Non_History_Adjusted_Retail_Xclean as string,\n\t\tBBOL_History_Adjusted_Retail_Xclean as string,\n\t\tBBOL_Base_Retail_Clean as string,\n\t\tBBOL_Mileage_Retail_Clean as string,\n\t\tBBOL_Add_Deduct_Retail_Clean as string,\n\t\tBBOL_Regional_Retail_Clean as string,\n\t\tBBOL_History_Retail_Clean as string,\n\t\tBBOL_Non_History_Adjusted_Retail_Clean as string,\n\t\tBBOL_History_Adjusted_Retail_Clean as string,\n\t\tBBOL_Base_Retail_Avg as string,\n\t\tBBOL_Mileage_Retail_Avg as string,\n\t\tBBOL_Add_Deduct_Retail_Avg as string,\n\t\tBBOL_Regional_Retail_Avg as string,\n\t\tBBOL_History_Retail_Avg as string,\n\t\tBBOL_Non_History_Adjusted_Retail_Avg as string,\n\t\tBBOL_History_Adjusted_Retail_Avg as string,\n\t\tBBOL_Base_Retail_Rough as string,\n\t\tBBOL_Mileage_Retail_Rough as string,\n\t\tBBOL_Add_Deduct_Retail_Rough as string,\n\t\tBBOL_Regional_Retail_Rough as string,\n\t\tBBOL_History_Retail_Rough as string,\n\t\tBBOL_Non_History_Adjusted_Retail_Rough as string,\n\t\tBBOL_History_Adjusted_Retail_Rough as string,\n\t\tBBOL_Base_Tradein_Clean as string,\n\t\tBBOL_Mileage_Tradein_Clean as string,\n\t\tBBOL_Add_Deduct_Tradein_Clean as string,\n\t\tBBOL_Regional_Tradein_Clean as string,\n\t\tBBOL_History_Tradein_Clean as string,\n\t\tBBOL_Non_History_Adjusted_Tradein_Clean as string,\n\t\tBBOL_History_Adjusted_Tradein_Clean as string,\n\t\tBBOL_Base_Tradein_Avg as string,\n\t\tBBOL_Mileage_Tradein_Avg as string,\n\t\tBBOL_Add_Deduct_Tradein_Avg as string,\n\t\tBBOL_Regional_Tradein_Avg as string,\n\t\tBBOL_History_Tradein_Avg as string,\n\t\tBBOL_Non_History_Adjusted_Tradein_Avg as string,\n\t\tBBOL_History_Adjusted_Tradein_Avg as string,\n\t\tBBOL_Base_Tradein_Rough as string,\n\t\tBBOL_Mileage_Tradein_Rough as string,\n\t\tBBOL_Add_Deduct_Tradein_Rough as string,\n\t\tBBOL_Regional_Tradein_Rough as string,\n\t\tBBOL_History_Tradein_Rough as string,\n\t\tBBOL_Non_History_Adjusted_Tradein_Rough as string,\n\t\tBBOL_History_Adjusted_Tradein_Rough as string,\n\t\tBBOL_Base_Finadv as string,\n\t\tBBOL_Mileage_Finadv as string,\n\t\tBBOL_Add_Deduct_Finadv as string,\n\t\tBBOL_Regional_Finadv as string,\n\t\tBBOL_Adjusted_Finadv as string,\n\t\tBBOL_Base_Resid12 as string,\n\t\tBBOL_Mileage_Resid12 as string,\n\t\tBBOL_Add_Deduct_Resid12 as string,\n\t\tBBOL_Adjusted_Resid12 as string,\n\t\tBBOL_Base_Resid24 as string,\n\t\tBBOL_Mileage_Resid24 as string,\n\t\tBBOL_Add_Deduct_Resid24 as string,\n\t\tBBOL_Adjusted_Resid24 as string,\n\t\tBBOL_Base_Resid30 as string,\n\t\tBBOL_Mileage_Resid30 as string,\n\t\tBBOL_Add_Deduct_Resid30 as string,\n\t\tBBOL_Adjusted_Resid30 as string,\n\t\tBBOL_Base_Resid36 as string,\n\t\tBBOL_Mileage_Resid36 as string,\n\t\tBBOL_Add_Deduct_Resid36 as string,\n\t\tBBOL_Adjusted_Resid36 as string,\n\t\tBBOL_Base_Resid42 as string,\n\t\tBBOL_Mileage_Resid42 as string,\n\t\tBBOL_Add_Deduct_Resid42 as string,\n\t\tBBOL_Adjusted_Resid42 as string,\n\t\tBBOL_Base_Resid48 as string,\n\t\tBBOL_Mileage_Resid48 as string,\n\t\tBBOL_Add_Deduct_Resid48 as string,\n\t\tBBOL_Adjusted_Resid48 as string,\n\t\tBBOL_Base_Resid60 as string,\n\t\tBBOL_Mileage_Resid60 as string,\n\t\tBBOL_Add_Deduct_Resid60 as string,\n\t\tBBOL_Adjusted_Resid60 as string,\n\t\tBBOL_Base_Resid72 as string,\n\t\tBBOL_Mileage_Resid72 as string,\n\t\tBBOL_Add_Deduct_Resid72 as string,\n\t\tBBOL_Adjusted_Resid72 as string,\n\t\tBBOL_Msrp as string,\n\t\tBBOL_Retail_Equipped as string,\n\t\tBBOL_Price_Includes as string,\n\t\tBBOL_Wheel_Base as string,\n\t\tBBOL_Tire_Size as string,\n\t\tBBOL_Gvw as string,\n\t\tBBOL_Seat_Cap as string,\n\t\tBBOL_Fuel_Type as string,\n\t\tBBOL_Fuel_Cap as string,\n\t\tBBOL_Fuel_Delivery as string,\n\t\tBBOL_Hwy_Mpg as string,\n\t\tBBOL_City_Mpg as string,\n\t\tBBOL_Engine_Description as string,\n\t\tBBOL_Cylinders as string,\n\t\tBBOL_Engine_Displacement as string,\n\t\tBBOL_Base_Hp as string,\n\t\tBBOL_Taxable_Hp as string,\n\t\tBBOL_Torque as string,\n\t\tBBOL_Oil_Cap as string,\n\t\tBBOL_Transmission as string,\n\t\tBBOL_Drivetrain as string,\n\t\tBBOL_Num_Gears as string,\n\t\tBBOL_Ext_Doors as string,\n\t\tBBOL_Airbags as string,\n\t\tBBOL_Anti_Corrosion_Warranty as string,\n\t\tBBOL_Basic_Warranty as string,\n\t\tBBOL_Powertrain_Warranty as string,\n\t\tBBOL_Road_Assist_Warranty as string,\n\t\tBBOL_Model_Year as string,\n\t\tBBOL_Range_Begin as string,\n\t\tBBOL_Range_End as string,\n\t\tBBOL_Xclean as string,\n\t\tBBOL_Clean as string,\n\t\tBBOL_Avg as string,\n\t\tBBOL_Rough as string,\n\t\tBBOL_Finadv as string,\n\t\tBBOL_Mileage_Cat as string\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tinferDriftedColumnTypes: true,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tformat: 'table') ~> MessageLog\nsource(output(\n\t\tCompass_Event_Id as long,\n\t\tCompass_Status_Cd as string,\n\t\tCompass_Id as string,\n\t\tCompass_Appraisal_Duration as integer,\n\t\tCompass_Appraisal_Date as timestamp,\n\t\tCompass_Expiration_Dt as timestamp,\n\t\tCompass_Flow_Type_Cd as string,\n\t\tCompass_Confirm_Dt as timestamp,\n\t\tCompass_Confirm_Nm as string,\n\t\tCompass_Creation_Dt as timestamp,\n\t\tCompass_Update_Dt as timestamp,\n\t\tCompass_Update_User_Id as integer,\n\t\tCompass_Appraisal_Amount as string,\n\t\tCompass_Active_Flg as boolean,\n\t\tCompass_Valid as boolean,\n\t\tCompass_Invalidate_User_Id as integer,\n\t\tCompass_Appraiser_Nm as string,\n\t\tCompass_View_Type as string,\n\t\tCompass_Acv_Amount as string\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tformat: 'table') ~> Compass\nConditionReportSource parse(json = Request ? (ConditionReport as (ConfigurationBlackBook as string,\n\t\tinquirygroups as (inquiries as (key as string, querytext as string, response as (conditionindicators as (key as string, value as string)[], description as string))[], key as string, name as string)[],\n\t\tmedia as string[])),\n\tformat: 'json',\n\tdocumentForm: 'singleDocument') ~> ConditionReportParse\nRedirection@success foldDown(unroll(json.ConditionReport.inquirygroups.inquiries.response.conditionindicators, json.ConditionReport.inquirygroups.inquiries.response.conditionindicators),\n\tmapColumn(\n\t\tId,\n\t\tAppraisalVehicleId,\n\t\tRequest,\n\t\tSource,\n\t\tCDKApprasialValue,\n\t\tCreateDate,\n\t\tModifiedDate,\n\t\tAppraisalId,\n\t\tMessageLogId,\n\t\tLeadId,\n\t\tHyperionId,\n\t\tBPOLAdjustedValue,\n\t\tANAdjustedValues,\n\t\tRuleExecuted,\n\t\tconditionindicatorkey = json.ConditionReport.inquirygroups.inquiries.response.conditionindicators.key,\n\t\tconditionindicatorvalue = json.ConditionReport.inquirygroups.inquiries.response.conditionindicators.value,\n\t\tquerytext = json.ConditionReport.inquirygroups.inquiries.querytext\n\t),\n\tskipDuplicateMapInputs: false,\n\tskipDuplicateMapOutputs: false) ~> ConditionIndicatorFlatten\nConditionIndicatorFlatten derive({new indicator key} = iif(querytext == 'Paint Condition' || querytext == 'Body Condition' || querytext == 'Seat Condition', replace(initCap(querytext+'_'+replace(conditionindicatorkey, '*', ' ')),'_ ','_'),initCap(querytext))) ~> NewIndicatorKeyDerivedColumn\nDerivedColumn2 pivot(groupBy(AppraisalId,\n\t\tAppraisalVehicleId,\n\t\tLeadId),\n\tpivotBy({new indicator key}),\n\t{} = first(conditionindicatorvalue),\n\tcolumnNaming: '$N$V',\n\tlateral: true) ~> Pivot1\nPivot1, ConditionReportSource join(Pivot1@AppraisalId == ConditionReportSource@AppraisalId,\n\tjoinType:'inner',\n\tmatchType:'exact',\n\tignoreSpaces: false,\n\tbroadcast: 'auto')~> ConditionReportJoin\nConditionReportJoin, TradeInVehicleDetailsSource join(ConditionReportSource@MessageLogId == TradeInVehicleDetailsSource@MessageLogId,\n\tjoinType:'inner',\n\tmatchType:'exact',\n\tignoreSpaces: false,\n\tbroadcast: 'auto')~> TradeInVehicleJoin\nTradeInVehicleJoin, AppraisalDetailsSource join(ConditionReportSource@Id == AppraisalDetailsSource@Id,\n\tjoinType:'inner',\n\tmatchType:'exact',\n\tignoreSpaces: false,\n\tbroadcast: 'auto')~> AppraisalDetailsJoin\nNewIndicatorKeyDerivedColumn derive({new indicator key} = replace({new indicator key}, ' ', '_')) ~> DerivedColumn1\nDerivedColumn1 derive({new indicator key} = replace({new indicator key}, 'Condition_no', 'Condition_No')) ~> DerivedColumn2\nCompassJoin derive(Transformation_CreateDate = currentTimestamp(),\n\t\tSource_CreateDate = ConditionReportSource@CreateDate,\n\t\tSource_ModifiedDate = ModifiedDate,\n\t\tSourceId = ConditionReportSource@Id,\n\t\tSourceMessageLogId = ConditionReportSource@MessageLogId,\n\t\tTrim = replace(Trim,'\"',''),\n\t\tBBOL_Response = toBase64(BBOL_Response)) ~> DerivedColumn3\nConditionReportParse split(!isNull(toLong(LeadId)) && !isNull(toLong(AppraisalVehicleId)) && !isNull(toLong(AppraisalId)),\n\tdisjoint: false) ~> Redirection@(success, error)\nRedirection@error derive(Transformation_CreateDate = currentTimestamp()) ~> DerivedColumn4\nAppraisalDetailsJoin, MessageLog join(ConditionReportSource@MessageLogId == MessageLog@MessageLogId,\n\tjoinType:'inner',\n\tmatchType:'exact',\n\tignoreSpaces: false,\n\tbroadcast: 'auto')~> MessageLogJoin\nMessageLogJoin, Compass join(ConditionReportSource@AppraisalId == Compass_Event_Id,\n\tjoinType:'left',\n\tmatchType:'exact',\n\tignoreSpaces: false,\n\tbroadcast: 'auto')~> CompassJoin\nDerivedColumn3 sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:true,\n\tupdateable:false,\n\tupsertable:false,\n\tformat: 'table',\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\terrorHandlingOption: 'allErrors',\n\ttransactionCommit: 'batch',\n\treportSuccessOnError: false) ~> TransformDestinationSink\nDerivedColumn4 sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:true,\n\tupdateable:false,\n\tupsertable:false,\n\tformat: 'table',\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\terrorHandlingOption: 'stopOnFirstError',\n\tmapColumn(\n\t\tId,\n\t\tAppraisalVehicleId,\n\t\tRequest,\n\t\tSource,\n\t\tCDKApprasialValue,\n\t\tCreateDate,\n\t\tModifiedDate,\n\t\tAppraisalId,\n\t\tMessageLogId,\n\t\tLeadId,\n\t\tHyperionId,\n\t\tBPOLAdjustedValue,\n\t\tANAdjustedValues,\n\t\tRuleExecuted,\n\t\tRunId,\n\t\tTransformation_Status,\n\t\tTransformation_CreateDate\n\t)) ~> ErrorSink"
+		}
+	}
+}

@@ -1,0 +1,41 @@
+{
+	"name": "dsJobsJSON",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "DSFDB",
+			"type": "LinkedServiceReference"
+		},
+		"folder": {
+			"name": "Json"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "JobName",
+				"type": "varchar"
+			},
+			{
+				"name": "Status",
+				"type": "bit"
+			},
+			{
+				"name": "StartDate",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "LastRunTime",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			}
+		],
+		"typeProperties": {
+			"schema": "Integration",
+			"table": "Jobs"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

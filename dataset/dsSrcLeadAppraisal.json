@@ -1,0 +1,54 @@
+{
+	"name": "dsSrcLeadAppraisal",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "WBYCDataExtractDB",
+			"type": "LinkedServiceReference"
+		},
+		"folder": {
+			"name": "XML"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "lead_id",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "event_id",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "vehicle_id",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "VIN",
+				"type": "varchar"
+			},
+			{
+				"name": "condition_report_xml",
+				"type": "text"
+			},
+			{
+				"name": "appraisal_amount",
+				"type": "varchar"
+			},
+			{
+				"name": "creation_dt",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "temp_lead_appraisal"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

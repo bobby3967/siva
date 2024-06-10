@@ -1,0 +1,20 @@
+{
+	"name": "dsJSONDestinationMessageLog",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "WBYCDataExtractDB",
+			"type": "LinkedServiceReference"
+		},
+		"folder": {
+			"name": "Json"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "temp_messagelog_staging"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

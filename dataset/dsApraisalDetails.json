@@ -1,0 +1,77 @@
+{
+	"name": "dsApraisalDetails",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "DSFDB",
+			"type": "LinkedServiceReference"
+		},
+		"folder": {
+			"name": "Json"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "Id",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "AppraisalVehicleId",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "Wholesale",
+				"type": "varchar"
+			},
+			{
+				"name": "Retail",
+				"type": "varchar"
+			},
+			{
+				"name": "TradeIn",
+				"type": "varchar"
+			},
+			{
+				"name": "FinanceAdvance",
+				"type": "money",
+				"precision": 19,
+				"scale": 4
+			},
+			{
+				"name": "Residual",
+				"type": "money",
+				"precision": 19,
+				"scale": 4
+			},
+			{
+				"name": "HistoryAdjusted",
+				"type": "money",
+				"precision": 19,
+				"scale": 4
+			},
+			{
+				"name": "ValueAdjustment",
+				"type": "money",
+				"precision": 19,
+				"scale": 4
+			},
+			{
+				"name": "CreateDate",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "AdditionalDetails",
+				"type": "varchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "Integration",
+			"table": "InstantAppraisalAppraisalDetails"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

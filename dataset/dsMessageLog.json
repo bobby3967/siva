@@ -1,0 +1,48 @@
+{
+	"name": "dsMessageLog",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "DSFDB",
+			"type": "LinkedServiceReference"
+		},
+		"folder": {
+			"name": "Json"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "Id",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "Request",
+				"type": "varchar"
+			},
+			{
+				"name": "Response",
+				"type": "varchar"
+			},
+			{
+				"name": "HttpStatus",
+				"type": "varchar"
+			},
+			{
+				"name": "CreateDate",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "TradeInVehicleDetails",
+				"type": "nvarchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "Integration",
+			"table": "InstantAppraisalMessageLog"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

@@ -1,0 +1,111 @@
+{
+	"name": "dsTradeInVehicleDetails",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "DSFDB",
+			"type": "LinkedServiceReference"
+		},
+		"folder": {
+			"name": "Json"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "Id",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "MessageLogId",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "AppraisalVehicleId",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "Year",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "Make",
+				"type": "varchar"
+			},
+			{
+				"name": "Model",
+				"type": "varchar"
+			},
+			{
+				"name": "Trim",
+				"type": "varchar"
+			},
+			{
+				"name": "ExteriorColor",
+				"type": "varchar"
+			},
+			{
+				"name": "SeatColor",
+				"type": "varchar"
+			},
+			{
+				"name": "SeatMaterial",
+				"type": "varchar"
+			},
+			{
+				"name": "Mileage",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "Options",
+				"type": "varchar"
+			},
+			{
+				"name": "ZipCode",
+				"type": "varchar"
+			},
+			{
+				"name": "AllPostiveAnswers",
+				"type": "varchar"
+			},
+			{
+				"name": "CreateDate",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "AdditionalDetails",
+				"type": "varchar"
+			},
+			{
+				"name": "Vin",
+				"type": "varchar"
+			},
+			{
+				"name": "LeadId",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "HyperionId",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "ChromeStyleId",
+				"type": "bigint",
+				"precision": 19
+			}
+		],
+		"typeProperties": {
+			"schema": "Integration",
+			"table": "InstantAppraisalTradeInVehicleDetails"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

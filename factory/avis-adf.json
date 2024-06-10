@@ -1,0 +1,9 @@
+{
+	"name": "avis-adf",
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "7842bb53-8f0b-458e-a769-8d4621491c4f",
+		"tenantId": "292f7155-659f-4188-b9c9-e5018fc85364"
+	}
+}

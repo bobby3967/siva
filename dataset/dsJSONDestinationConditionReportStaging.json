@@ -1,0 +1,91 @@
+{
+	"name": "dsJSONDestinationConditionReportStaging",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "WBYCDataExtractDB",
+			"type": "LinkedServiceReference"
+		},
+		"folder": {
+			"name": "Json"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "Id",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "AppraisalVehicleId",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "Request",
+				"type": "varchar"
+			},
+			{
+				"name": "Source",
+				"type": "varchar"
+			},
+			{
+				"name": "CDKApprasialValue",
+				"type": "money",
+				"precision": 19,
+				"scale": 4
+			},
+			{
+				"name": "CreateDate",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "ModifiedDate",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "AppraisalId",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "MessageLogId",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "LeadId",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "HyperionId",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "BPOLAdjustedValue",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "ANAdjustedValues",
+				"type": "bigint",
+				"precision": 19
+			},
+			{
+				"name": "RuleExecuted",
+				"type": "varchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "temp_conditionreport_staging"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

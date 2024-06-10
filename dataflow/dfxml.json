@@ -1,0 +1,47 @@
+{
+	"name": "dfxml",
+	"properties": {
+		"folder": {
+			"name": "WBYCDataExtract-XML"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "dsDestinationLeadAppraisalStaging",
+						"type": "DatasetReference"
+					},
+					"name": "Leadappraisalstaging"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "dsTransformationLeadAppraisal",
+						"type": "DatasetReference"
+					},
+					"name": "sinkleadaapraisaltransformation"
+				}
+			],
+			"transformations": [
+				{
+					"name": "ParseXml"
+				},
+				{
+					"name": "DerivedColumnkey"
+				},
+				{
+					"name": "FlattenIndicators"
+				},
+				{
+					"name": "PivotIndicatorkey"
+				},
+				{
+					"name": "Join1"
+				}
+			],
+			"script": "source(output(\n\t\tlead_id as integer,\n\t\tevent_id as long,\n\t\tvehicle_id as integer,\n\t\tVIN as string,\n\t\tcondition_report_xml as string,\n\t\tappraisal_amount as string,\n\t\tcreation_dt as timestamp\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tbatchSize: 1,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tformat: 'table') ~> Leadappraisalstaging\nLeadappraisalstaging parse(condition_report_xml = condition_report_xml ? (conditionReport as (inquirygroups as (inquirygroup as (inquiries as( inquiry as(querytext as string,response as(conditionindicators\r\n             as(conditionindicator as(key as string, value as string))[]))[])[])[])[])),\n\tformat: 'xml',\n\tnullValue: 'N/A',\n\tnamespaces: true) ~> ParseXml\nFlattenIndicators derive(conditionindicatorkey = iif(querytext == 'Paint Condition' || querytext == 'Body Condition' || querytext == 'Seat Condition', querytext + '-' + key, querytext)) ~> DerivedColumnkey\nParseXml foldDown(unroll(condition_report_xml.conditionReport.inquirygroups.inquirygroup.inquiries.inquiry.response.conditionindicators, condition_report_xml.conditionReport.inquirygroups.inquirygroup.inquiries.inquiry.response.conditionindicators),\n\tmapColumn(\n\t\tlead_id,\n\t\tevent_id,\n\t\tvehicle_id,\n\t\tVIN,\n\t\tquerytext = condition_report_xml.conditionReport.inquirygroups.inquirygroup.inquiries.inquiry.querytext,\n\t\tkey = condition_report_xml.conditionReport.inquirygroups.inquirygroup.inquiries.inquiry.response.conditionindicators.conditionindicator.key,\n\t\tvalue = condition_report_xml.conditionReport.inquirygroups.inquirygroup.inquiries.inquiry.response.conditionindicators.conditionindicator.value,\n\t\tappraisal_amount,\n\t\tcreation_dt\n\t),\n\tskipDuplicateMapInputs: false,\n\tskipDuplicateMapOutputs: false) ~> FlattenIndicators\nDerivedColumnkey pivot(groupBy(lead_id,\n\t\tevent_id,\n\t\tvehicle_id),\n\tpivotBy(conditionindicatorkey),\n\t{} = first(value),\n\tcolumnNaming: '$N$V',\n\tlateral: true) ~> PivotIndicatorkey\nPivotIndicatorkey, Leadappraisalstaging join(PivotIndicatorkey@lead_id == Leadappraisalstaging@lead_id,\n\tjoinType:'inner',\n\tmatchType:'exact',\n\tignoreSpaces: false,\n\tbroadcast: 'auto')~> Join1\nJoin1 sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:true,\n\tupdateable:false,\n\tupsertable:false,\n\tformat: 'table',\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\terrorHandlingOption: 'stopOnFirstError') ~> sinkleadaapraisaltransformation"
+		}
+	}
+}
