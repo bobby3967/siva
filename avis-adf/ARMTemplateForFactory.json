@@ -1,0 +1,1447 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "avis-adf"
+		},
+		"AzureBlobLinkedService_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'AzureBlobLinkedService'"
+		},
+		"DSFDB_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'DSFDB'"
+		},
+		"WBYCDataExtractDB_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'WBYCDataExtractDB'"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/WBYC_COMPASS_DATA_EXTRACT')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "dfxml",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [
+							{
+								"activity": "CopyLeadAppraisal",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "1.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "dfxml",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"Leadappraisalstaging": {},
+									"sinkleadaapraisaltransformation": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					},
+					{
+						"name": "CopyLeadAppraisal",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "LKP_Old_incremental",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							},
+							{
+								"activity": "LKP_New_incremental",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderQuery": {
+									"value": "select * from [dbo].[temp_lead_appraisal] where creation_dt >'@{activity('LKP_Old_incremental').output.firstRow.processtime}'\nAND creation_dt<='@{activity('LKP_New_incremental').output.firstRow.NewValue}'\n",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "AzureSqlSink",
+								"preCopyScript": "TradeInVehicleDetails",
+								"writeBehavior": "insert",
+								"disableMetricsCollection": false
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "lead_id",
+											"type": "Int32",
+											"physicalType": "int"
+										},
+										"sink": {
+											"name": "lead_id",
+											"type": "Int32",
+											"physicalType": "int"
+										}
+									},
+									{
+										"source": {
+											"name": "event_id",
+											"type": "Int64",
+											"physicalType": "bigint"
+										},
+										"sink": {
+											"name": "event_id",
+											"type": "Int64",
+											"physicalType": "bigint"
+										}
+									},
+									{
+										"source": {
+											"name": "vehicle_id",
+											"type": "Int32",
+											"physicalType": "int"
+										},
+										"sink": {
+											"name": "vehicle_id",
+											"type": "Int32",
+											"physicalType": "int"
+										}
+									},
+									{
+										"source": {
+											"name": "VIN",
+											"type": "String",
+											"physicalType": "varchar"
+										},
+										"sink": {
+											"name": "VIN",
+											"type": "String",
+											"physicalType": "varchar"
+										}
+									},
+									{
+										"source": {
+											"name": "condition_report_xml",
+											"type": "String",
+											"physicalType": "text"
+										},
+										"sink": {
+											"name": "condition_report_xml",
+											"type": "String",
+											"physicalType": "text"
+										}
+									},
+									{
+										"source": {
+											"name": "appraisal_amount",
+											"type": "String",
+											"physicalType": "varchar"
+										},
+										"sink": {
+											"name": "appraisal_amount",
+											"type": "String",
+											"physicalType": "varchar"
+										}
+									},
+									{
+										"source": {
+											"name": "creation_dt",
+											"type": "DateTime",
+											"physicalType": "datetime"
+										},
+										"sink": {
+											"name": "creation_dt",
+											"type": "DateTime",
+											"physicalType": "datetime"
+										}
+									}
+								],
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "dsSrcLeadAppraisal",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "dsDestinationLeadAppraisalStaging",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					},
+					{
+						"name": "LKP_Old_incremental",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderQuery": "Select * from incrementalprocess where tablename='temp_lead_appraisal'",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "dsIncrementalProcess",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						}
+					},
+					{
+						"name": "LKP_New_incremental",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderQuery": "select MAX(creation_dt) As NewValue from [dbo].[temp_lead_appraisal]",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "dsDestinationLeadAppraisalStaging",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						}
+					},
+					{
+						"name": "SetIncrementalprocess",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "dfxml",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[dbo].[spSetincremental]",
+							"storedProcedureParameters": {
+								"processtime": {
+									"value": {
+										"value": "@activity('LKP_New_incremental').output.firstRow.NewValue",
+										"type": "Expression"
+									},
+									"type": "DateTime"
+								},
+								"tablename": {
+									"value": {
+										"value": "@activity('LKP_Old_incremental').output.firstRow.tablename",
+										"type": "Expression"
+									},
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "WBYCDataExtractDB",
+							"type": "LinkedServiceReference"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2024-06-10T20:20:57Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/dfxml')]",
+				"[concat(variables('factoryId'), '/datasets/dsSrcLeadAppraisal')]",
+				"[concat(variables('factoryId'), '/datasets/dsDestinationLeadAppraisalStaging')]",
+				"[concat(variables('factoryId'), '/datasets/dsIncrementalProcess')]",
+				"[concat(variables('factoryId'), '/linkedServices/WBYCDataExtractDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsANCSV')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureBlobLinkedService",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"csvrunid": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobStorageLocation",
+						"fileName": {
+							"value": "@concat(\n'ANCOM_ConditionReport_',\nutcnow(),\n'_',\ndataset().csvrunid,\n'.csv'\n)",
+							"type": "Expression"
+						},
+						"folderPath": "b",
+						"container": "abc"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"nullValue": "N/A",
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/AzureBlobLinkedService')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsAppraisalTransformation')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "WBYCDataExtractDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "appraisal_transformation"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/WBYCDataExtractDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsApraisalDetails')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "DSFDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "Id",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "AppraisalVehicleId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "Wholesale",
+						"type": "varchar"
+					},
+					{
+						"name": "Retail",
+						"type": "varchar"
+					},
+					{
+						"name": "TradeIn",
+						"type": "varchar"
+					},
+					{
+						"name": "FinanceAdvance",
+						"type": "money",
+						"precision": 19,
+						"scale": 4
+					},
+					{
+						"name": "Residual",
+						"type": "money",
+						"precision": 19,
+						"scale": 4
+					},
+					{
+						"name": "HistoryAdjusted",
+						"type": "money",
+						"precision": 19,
+						"scale": 4
+					},
+					{
+						"name": "ValueAdjustment",
+						"type": "money",
+						"precision": 19,
+						"scale": 4
+					},
+					{
+						"name": "CreateDate",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					},
+					{
+						"name": "AdditionalDetails",
+						"type": "varchar"
+					}
+				],
+				"typeProperties": {
+					"schema": "Integration",
+					"table": "InstantAppraisalAppraisalDetails"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/DSFDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsConditionReport')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "DSFDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "Id",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "AppraisalVehicleId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "Request",
+						"type": "varchar"
+					},
+					{
+						"name": "Source",
+						"type": "varchar"
+					},
+					{
+						"name": "CDKApprasialValue",
+						"type": "money",
+						"precision": 19,
+						"scale": 4
+					},
+					{
+						"name": "CreateDate",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					},
+					{
+						"name": "ModifiedDate",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					},
+					{
+						"name": "AppraisalId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "MessageLogId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "LeadId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "HyperionId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "BPOLAdjustedValue",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "ANAdjustedValues",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "RuleExecuted",
+						"type": "varchar"
+					}
+				],
+				"typeProperties": {
+					"schema": "Integration",
+					"table": "InstantAppraisalConditionReport"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/DSFDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsDestinationLeadAppraisalStaging')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "WBYCDataExtractDB",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "lead_id",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "event_id",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "vehicle_id",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "VIN",
+						"type": "varchar"
+					},
+					{
+						"name": "condition_report_xml",
+						"type": "text"
+					},
+					{
+						"name": "appraisal_amount",
+						"type": "varchar"
+					},
+					{
+						"name": "creation_dt",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "temp_lead_appraisal_staging"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/WBYCDataExtractDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsError')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "WBYCDataExtractDB",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "error_transformation"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/WBYCDataExtractDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsIncrementalProcess')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "DSFDB",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "tablename",
+						"type": "varchar"
+					},
+					{
+						"name": "processtime",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					}
+				],
+				"typeProperties": {
+					"schema": "integration",
+					"table": "jobs"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/DSFDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsJSONDestinationAppraisalDetailsStaging')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "WBYCDataExtractDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "temp_appraisaldetails_staging"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/WBYCDataExtractDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsJSONDestinationComapassLeadAppraisal')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "WBYCDataExtractDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "temp_compassleadappraisal_staging"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/WBYCDataExtractDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsJSONDestinationConditionReportStaging')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "WBYCDataExtractDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "Id",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "AppraisalVehicleId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "Request",
+						"type": "varchar"
+					},
+					{
+						"name": "Source",
+						"type": "varchar"
+					},
+					{
+						"name": "CDKApprasialValue",
+						"type": "money",
+						"precision": 19,
+						"scale": 4
+					},
+					{
+						"name": "CreateDate",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					},
+					{
+						"name": "ModifiedDate",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					},
+					{
+						"name": "AppraisalId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "MessageLogId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "LeadId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "HyperionId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "BPOLAdjustedValue",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "ANAdjustedValues",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "RuleExecuted",
+						"type": "varchar"
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "temp_conditionreport_staging"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/WBYCDataExtractDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsJSONDestinationMessageLog')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "WBYCDataExtractDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "temp_messagelog_staging"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/WBYCDataExtractDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsJSONDestinationTradeInVehicleDetailsStaging')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "WBYCDataExtractDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "temp_tradeInvehicledetails_staging"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/WBYCDataExtractDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsJobsJSON')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "DSFDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "JobName",
+						"type": "varchar"
+					},
+					{
+						"name": "Status",
+						"type": "bit"
+					},
+					{
+						"name": "StartDate",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					},
+					{
+						"name": "LastRunTime",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					}
+				],
+				"typeProperties": {
+					"schema": "Integration",
+					"table": "Jobs"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/DSFDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsMessageLog')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "DSFDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "Id",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "Request",
+						"type": "varchar"
+					},
+					{
+						"name": "Response",
+						"type": "varchar"
+					},
+					{
+						"name": "HttpStatus",
+						"type": "varchar"
+					},
+					{
+						"name": "CreateDate",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					},
+					{
+						"name": "TradeInVehicleDetails",
+						"type": "nvarchar"
+					}
+				],
+				"typeProperties": {
+					"schema": "Integration",
+					"table": "InstantAppraisalMessageLog"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/DSFDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsMessageLogFlattenStaging')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "WBYCDataExtractDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "temp_messagelog_flatten_staging"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/WBYCDataExtractDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsSrcLeadAppraisal')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "WBYCDataExtractDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "XML"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "lead_id",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "event_id",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "vehicle_id",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "VIN",
+						"type": "varchar"
+					},
+					{
+						"name": "condition_report_xml",
+						"type": "text"
+					},
+					{
+						"name": "appraisal_amount",
+						"type": "varchar"
+					},
+					{
+						"name": "creation_dt",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "temp_lead_appraisal"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/WBYCDataExtractDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsTradeInVehicleDetails')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "DSFDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "Id",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "MessageLogId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "AppraisalVehicleId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "Year",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "Make",
+						"type": "varchar"
+					},
+					{
+						"name": "Model",
+						"type": "varchar"
+					},
+					{
+						"name": "Trim",
+						"type": "varchar"
+					},
+					{
+						"name": "ExteriorColor",
+						"type": "varchar"
+					},
+					{
+						"name": "SeatColor",
+						"type": "varchar"
+					},
+					{
+						"name": "SeatMaterial",
+						"type": "varchar"
+					},
+					{
+						"name": "Mileage",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "Options",
+						"type": "varchar"
+					},
+					{
+						"name": "ZipCode",
+						"type": "varchar"
+					},
+					{
+						"name": "AllPostiveAnswers",
+						"type": "varchar"
+					},
+					{
+						"name": "CreateDate",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					},
+					{
+						"name": "AdditionalDetails",
+						"type": "varchar"
+					},
+					{
+						"name": "Vin",
+						"type": "varchar"
+					},
+					{
+						"name": "LeadId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "HyperionId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "ChromeStyleId",
+						"type": "bigint",
+						"precision": 19
+					}
+				],
+				"typeProperties": {
+					"schema": "Integration",
+					"table": "InstantAppraisalTradeInVehicleDetails"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/DSFDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsTransformationLeadAppraisal')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "WBYCDataExtractDB",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "appraisal_transformation"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/WBYCDataExtractDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/AzureBlobLinkedService')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobStorage",
+				"typeProperties": {
+					"connectionString": "[parameters('AzureBlobLinkedService_connectionString')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DSFDB')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureSqlDatabase",
+				"typeProperties": {
+					"connectionString": "[parameters('DSFDB_connectionString')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/WBYCDataExtractDB')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureSqlDatabase",
+				"typeProperties": {
+					"connectionString": "[parameters('WBYCDataExtractDB_connectionString')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DFANCOMJSON')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"folder": {
+					"name": "WBYCDataExtract-JSON"
+				},
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "dsJSONDestinationConditionReportStaging",
+								"type": "DatasetReference"
+							},
+							"name": "ConditionReportSource"
+						},
+						{
+							"dataset": {
+								"referenceName": "dsJSONDestinationTradeInVehicleDetailsStaging",
+								"type": "DatasetReference"
+							},
+							"name": "TradeInVehicleDetailsSource"
+						},
+						{
+							"dataset": {
+								"referenceName": "dsJSONDestinationAppraisalDetailsStaging",
+								"type": "DatasetReference"
+							},
+							"name": "AppraisalDetailsSource"
+						},
+						{
+							"dataset": {
+								"referenceName": "dsMessageLogFlattenStaging",
+								"type": "DatasetReference"
+							},
+							"name": "MessageLog"
+						},
+						{
+							"dataset": {
+								"referenceName": "dsJSONDestinationComapassLeadAppraisal",
+								"type": "DatasetReference"
+							},
+							"name": "Compass"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "dsTransformationLeadAppraisal",
+								"type": "DatasetReference"
+							},
+							"name": "TransformDestinationSink"
+						},
+						{
+							"dataset": {
+								"referenceName": "dsError",
+								"type": "DatasetReference"
+							},
+							"name": "ErrorSink"
+						}
+					],
+					"transformations": [
+						{
+							"name": "ConditionReportParse"
+						},
+						{
+							"name": "ConditionIndicatorFlatten"
+						},
+						{
+							"name": "NewIndicatorKeyDerivedColumn"
+						},
+						{
+							"name": "Pivot1"
+						},
+						{
+							"name": "ConditionReportJoin"
+						},
+						{
+							"name": "TradeInVehicleJoin"
+						},
+						{
+							"name": "AppraisalDetailsJoin"
+						},
+						{
+							"name": "DerivedColumn1"
+						},
+						{
+							"name": "DerivedColumn2"
+						},
+						{
+							"name": "DerivedColumn3"
+						},
+						{
+							"name": "Redirection"
+						},
+						{
+							"name": "DerivedColumn4"
+						},
+						{
+							"name": "MessageLogJoin"
+						},
+						{
+							"name": "CompassJoin"
+						}
+					],
+					"script": "source(output(\n\t\tId as long,\n\t\tAppraisalVehicleId as long,\n\t\tRequest as string,\n\t\tSource as string,\n\t\tCDKApprasialValue as decimal(19,4),\n\t\tCreateDate as timestamp,\n\t\tModifiedDate as timestamp,\n\t\tAppraisalId as long,\n\t\tMessageLogId as long,\n\t\tLeadId as long,\n\t\tHyperionId as long,\n\t\tBPOLAdjustedValue as long,\n\t\tANAdjustedValues as long,\n\t\tRuleExecuted as string,\n\t\tRunId as string,\n\t\tTransformation_Status as string\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tinferDriftedColumnTypes: true,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tquery: 'select * from [dbo].[temp_conditionreport_staging]',\n\tformat: 'query') ~> ConditionReportSource\nsource(output(\n\t\tId as long,\n\t\tMessageLogId as long,\n\t\tAppraisalVehicleId as long,\n\t\tYear as integer,\n\t\tMake as string,\n\t\tModel as string,\n\t\tTrim as string,\n\t\tExteriorColor as string,\n\t\tSeatColor as string,\n\t\tSeatMaterial as string,\n\t\tMileage as integer,\n\t\tOptions as string,\n\t\tZipCode as string,\n\t\tAllPostiveAnswers as string,\n\t\tCreateDate as timestamp,\n\t\tAdditionalDetails as string,\n\t\tVin as string,\n\t\tLeadId as long,\n\t\tHyperionId as long,\n\t\tChromeStyleId as long\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tquery: 'select * from dbo.temp_tradeInvehicledetails_staging where LeadId !=\\'\\'',\n\tformat: 'query') ~> TradeInVehicleDetailsSource\nsource(output(\n\t\tId as long,\n\t\tAppraisalVehicleId as long,\n\t\tWholesale as string,\n\t\tRetail as string,\n\t\tTradeIn as string,\n\t\tFinanceAdvance as decimal(19,4),\n\t\tResidual as decimal(19,4),\n\t\tHistoryAdjusted as decimal(19,4),\n\t\tValueAdjustment as decimal(19,4),\n\t\tCreateDate as timestamp,\n\t\tAdditionalDetails as string\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tformat: 'table') ~> AppraisalDetailsSource\nsource(output(\n\t\tMessageLogId as long,\n\t\tBBOL_Request as string,\n\t\tBBOL_Response as string,\n\t\tBBOL_Httpstatus as string,\n\t\tBBOL_Createdate as timestamp,\n\t\tBBOL_Tradeinvehicledetails as string,\n\t\tBBOL_Mileage_Whole_Xclean as string,\n\t\tBBOL_Add_Deduct_Whole_Xclean as string,\n\t\tBBOL_Regional_Whole_Xclean as string,\n\t\tBBOL_History_Whole_Xclean as string,\n\t\tBBOL_Non_History_Adjusted_Whole_Xclean as string,\n\t\tBBOL_History_Adjusted_Whole_Xclean as string,\n\t\tBBOL_Base_Whole_Clean as string,\n\t\tBBOL_Mileage_Whole_Clean as string,\n\t\tBBOL_Add_Deduct_Whole_Clean as string,\n\t\tBBOL_Regional_Whole_Clean as string,\n\t\tBBOL_History_Whole_Clean as string,\n\t\tBBOL_Non_History_Adjusted_Whole_Clean as string,\n\t\tBBOL_History_Adjusted_Whole_Clean as string,\n\t\tBBOL_Base_Whole_Avg as string,\n\t\tBBOL_Mileage_Whole_Avg as string,\n\t\tBBOL_Add_Deduct_Whole_Avg as string,\n\t\tBBOL_Regional_Whole_Avg as string,\n\t\tBBOL_History_Whole_Avg as string,\n\t\tBBOL_Non_History_Adjusted_Whole_Avg as string,\n\t\tBBOL_History_Adjusted_Whole_Avg as string,\n\t\tBBOL_Base_Whole_Rough as string,\n\t\tBBOL_Mileage_Whole_Rough as string,\n\t\tBBOL_Add_Deduct_Whole_Rough as string,\n\t\tBBOL_Regional_Whole_Rough as string,\n\t\tBBOL_History_Whole_Rough as string,\n\t\tBBOL_Non_History_Adjusted_Whole_Rough as string,\n\t\tBBOL_History_Adjusted_Whole_Rough as string,\n\t\tBBOL_Base_Retail_Xclean as string,\n\t\tBBOL_Mileage_Retail_Xclean as string,\n\t\tBBOL_Add_Deduct_Retail_Xclean as string,\n\t\tBBOL_Regional_Retail_Xclean as string,\n\t\tBBOL_History_Retail_Xclean as string,\n\t\tBBOL_Non_History_Adjusted_Retail_Xclean as string,\n\t\tBBOL_History_Adjusted_Retail_Xclean as string,\n\t\tBBOL_Base_Retail_Clean as string,\n\t\tBBOL_Mileage_Retail_Clean as string,\n\t\tBBOL_Add_Deduct_Retail_Clean as string,\n\t\tBBOL_Regional_Retail_Clean as string,\n\t\tBBOL_History_Retail_Clean as string,\n\t\tBBOL_Non_History_Adjusted_Retail_Clean as string,\n\t\tBBOL_History_Adjusted_Retail_Clean as string,\n\t\tBBOL_Base_Retail_Avg as string,\n\t\tBBOL_Mileage_Retail_Avg as string,\n\t\tBBOL_Add_Deduct_Retail_Avg as string,\n\t\tBBOL_Regional_Retail_Avg as string,\n\t\tBBOL_History_Retail_Avg as string,\n\t\tBBOL_Non_History_Adjusted_Retail_Avg as string,\n\t\tBBOL_History_Adjusted_Retail_Avg as string,\n\t\tBBOL_Base_Retail_Rough as string,\n\t\tBBOL_Mileage_Retail_Rough as string,\n\t\tBBOL_Add_Deduct_Retail_Rough as string,\n\t\tBBOL_Regional_Retail_Rough as string,\n\t\tBBOL_History_Retail_Rough as string,\n\t\tBBOL_Non_History_Adjusted_Retail_Rough as string,\n\t\tBBOL_History_Adjusted_Retail_Rough as string,\n\t\tBBOL_Base_Tradein_Clean as string,\n\t\tBBOL_Mileage_Tradein_Clean as string,\n\t\tBBOL_Add_Deduct_Tradein_Clean as string,\n\t\tBBOL_Regional_Tradein_Clean as string,\n\t\tBBOL_History_Tradein_Clean as string,\n\t\tBBOL_Non_History_Adjusted_Tradein_Clean as string,\n\t\tBBOL_History_Adjusted_Tradein_Clean as string,\n\t\tBBOL_Base_Tradein_Avg as string,\n\t\tBBOL_Mileage_Tradein_Avg as string,\n\t\tBBOL_Add_Deduct_Tradein_Avg as string,\n\t\tBBOL_Regional_Tradein_Avg as string,\n\t\tBBOL_History_Tradein_Avg as string,\n\t\tBBOL_Non_History_Adjusted_Tradein_Avg as string,\n\t\tBBOL_History_Adjusted_Tradein_Avg as string,\n\t\tBBOL_Base_Tradein_Rough as string,\n\t\tBBOL_Mileage_Tradein_Rough as string,\n\t\tBBOL_Add_Deduct_Tradein_Rough as string,\n\t\tBBOL_Regional_Tradein_Rough as string,\n\t\tBBOL_History_Tradein_Rough as string,\n\t\tBBOL_Non_History_Adjusted_Tradein_Rough as string,\n\t\tBBOL_History_Adjusted_Tradein_Rough as string,\n\t\tBBOL_Base_Finadv as string,\n\t\tBBOL_Mileage_Finadv as string,\n\t\tBBOL_Add_Deduct_Finadv as string,\n\t\tBBOL_Regional_Finadv as string,\n\t\tBBOL_Adjusted_Finadv as string,\n\t\tBBOL_Base_Resid12 as string,\n\t\tBBOL_Mileage_Resid12 as string,\n\t\tBBOL_Add_Deduct_Resid12 as string,\n\t\tBBOL_Adjusted_Resid12 as string,\n\t\tBBOL_Base_Resid24 as string,\n\t\tBBOL_Mileage_Resid24 as string,\n\t\tBBOL_Add_Deduct_Resid24 as string,\n\t\tBBOL_Adjusted_Resid24 as string,\n\t\tBBOL_Base_Resid30 as string,\n\t\tBBOL_Mileage_Resid30 as string,\n\t\tBBOL_Add_Deduct_Resid30 as string,\n\t\tBBOL_Adjusted_Resid30 as string,\n\t\tBBOL_Base_Resid36 as string,\n\t\tBBOL_Mileage_Resid36 as string,\n\t\tBBOL_Add_Deduct_Resid36 as string,\n\t\tBBOL_Adjusted_Resid36 as string,\n\t\tBBOL_Base_Resid42 as string,\n\t\tBBOL_Mileage_Resid42 as string,\n\t\tBBOL_Add_Deduct_Resid42 as string,\n\t\tBBOL_Adjusted_Resid42 as string,\n\t\tBBOL_Base_Resid48 as string,\n\t\tBBOL_Mileage_Resid48 as string,\n\t\tBBOL_Add_Deduct_Resid48 as string,\n\t\tBBOL_Adjusted_Resid48 as string,\n\t\tBBOL_Base_Resid60 as string,\n\t\tBBOL_Mileage_Resid60 as string,\n\t\tBBOL_Add_Deduct_Resid60 as string,\n\t\tBBOL_Adjusted_Resid60 as string,\n\t\tBBOL_Base_Resid72 as string,\n\t\tBBOL_Mileage_Resid72 as string,\n\t\tBBOL_Add_Deduct_Resid72 as string,\n\t\tBBOL_Adjusted_Resid72 as string,\n\t\tBBOL_Msrp as string,\n\t\tBBOL_Retail_Equipped as string,\n\t\tBBOL_Price_Includes as string,\n\t\tBBOL_Wheel_Base as string,\n\t\tBBOL_Tire_Size as string,\n\t\tBBOL_Gvw as string,\n\t\tBBOL_Seat_Cap as string,\n\t\tBBOL_Fuel_Type as string,\n\t\tBBOL_Fuel_Cap as string,\n\t\tBBOL_Fuel_Delivery as string,\n\t\tBBOL_Hwy_Mpg as string,\n\t\tBBOL_City_Mpg as string,\n\t\tBBOL_Engine_Description as string,\n\t\tBBOL_Cylinders as string,\n\t\tBBOL_Engine_Displacement as string,\n\t\tBBOL_Base_Hp as string,\n\t\tBBOL_Taxable_Hp as string,\n\t\tBBOL_Torque as string,\n\t\tBBOL_Oil_Cap as string,\n\t\tBBOL_Transmission as string,\n\t\tBBOL_Drivetrain as string,\n\t\tBBOL_Num_Gears as string,\n\t\tBBOL_Ext_Doors as string,\n\t\tBBOL_Airbags as string,\n\t\tBBOL_Anti_Corrosion_Warranty as string,\n\t\tBBOL_Basic_Warranty as string,\n\t\tBBOL_Powertrain_Warranty as string,\n\t\tBBOL_Road_Assist_Warranty as string,\n\t\tBBOL_Model_Year as string,\n\t\tBBOL_Range_Begin as string,\n\t\tBBOL_Range_End as string,\n\t\tBBOL_Xclean as string,\n\t\tBBOL_Clean as string,\n\t\tBBOL_Avg as string,\n\t\tBBOL_Rough as string,\n\t\tBBOL_Finadv as string,\n\t\tBBOL_Mileage_Cat as string\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tinferDriftedColumnTypes: true,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tformat: 'table') ~> MessageLog\nsource(output(\n\t\tCompass_Event_Id as long,\n\t\tCompass_Status_Cd as string,\n\t\tCompass_Id as string,\n\t\tCompass_Appraisal_Duration as integer,\n\t\tCompass_Appraisal_Date as timestamp,\n\t\tCompass_Expiration_Dt as timestamp,\n\t\tCompass_Flow_Type_Cd as string,\n\t\tCompass_Confirm_Dt as timestamp,\n\t\tCompass_Confirm_Nm as string,\n\t\tCompass_Creation_Dt as timestamp,\n\t\tCompass_Update_Dt as timestamp,\n\t\tCompass_Update_User_Id as integer,\n\t\tCompass_Appraisal_Amount as string,\n\t\tCompass_Active_Flg as boolean,\n\t\tCompass_Valid as boolean,\n\t\tCompass_Invalidate_User_Id as integer,\n\t\tCompass_Appraiser_Nm as string,\n\t\tCompass_View_Type as string,\n\t\tCompass_Acv_Amount as string\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tformat: 'table') ~> Compass\nConditionReportSource parse(json = Request ? (ConditionReport as (ConfigurationBlackBook as string,\n\t\tinquirygroups as (inquiries as (key as string, querytext as string, response as (conditionindicators as (key as string, value as string)[], description as string))[], key as string, name as string)[],\n\t\tmedia as string[])),\n\tformat: 'json',\n\tdocumentForm: 'singleDocument') ~> ConditionReportParse\nRedirection@success foldDown(unroll(json.ConditionReport.inquirygroups.inquiries.response.conditionindicators, json.ConditionReport.inquirygroups.inquiries.response.conditionindicators),\n\tmapColumn(\n\t\tId,\n\t\tAppraisalVehicleId,\n\t\tRequest,\n\t\tSource,\n\t\tCDKApprasialValue,\n\t\tCreateDate,\n\t\tModifiedDate,\n\t\tAppraisalId,\n\t\tMessageLogId,\n\t\tLeadId,\n\t\tHyperionId,\n\t\tBPOLAdjustedValue,\n\t\tANAdjustedValues,\n\t\tRuleExecuted,\n\t\tconditionindicatorkey = json.ConditionReport.inquirygroups.inquiries.response.conditionindicators.key,\n\t\tconditionindicatorvalue = json.ConditionReport.inquirygroups.inquiries.response.conditionindicators.value,\n\t\tquerytext = json.ConditionReport.inquirygroups.inquiries.querytext\n\t),\n\tskipDuplicateMapInputs: false,\n\tskipDuplicateMapOutputs: false) ~> ConditionIndicatorFlatten\nConditionIndicatorFlatten derive({new indicator key} = iif(querytext == 'Paint Condition' || querytext == 'Body Condition' || querytext == 'Seat Condition', replace(initCap(querytext+'_'+replace(conditionindicatorkey, '*', ' ')),'_ ','_'),initCap(querytext))) ~> NewIndicatorKeyDerivedColumn\nDerivedColumn2 pivot(groupBy(AppraisalId,\n\t\tAppraisalVehicleId,\n\t\tLeadId),\n\tpivotBy({new indicator key}),\n\t{} = first(conditionindicatorvalue),\n\tcolumnNaming: '$N$V',\n\tlateral: true) ~> Pivot1\nPivot1, ConditionReportSource join(Pivot1@AppraisalId == ConditionReportSource@AppraisalId,\n\tjoinType:'inner',\n\tmatchType:'exact',\n\tignoreSpaces: false,\n\tbroadcast: 'auto')~> ConditionReportJoin\nConditionReportJoin, TradeInVehicleDetailsSource join(ConditionReportSource@MessageLogId == TradeInVehicleDetailsSource@MessageLogId,\n\tjoinType:'inner',\n\tmatchType:'exact',\n\tignoreSpaces: false,\n\tbroadcast: 'auto')~> TradeInVehicleJoin\nTradeInVehicleJoin, AppraisalDetailsSource join(ConditionReportSource@Id == AppraisalDetailsSource@Id,\n\tjoinType:'inner',\n\tmatchType:'exact',\n\tignoreSpaces: false,\n\tbroadcast: 'auto')~> AppraisalDetailsJoin\nNewIndicatorKeyDerivedColumn derive({new indicator key} = replace({new indicator key}, ' ', '_')) ~> DerivedColumn1\nDerivedColumn1 derive({new indicator key} = replace({new indicator key}, 'Condition_no', 'Condition_No')) ~> DerivedColumn2\nCompassJoin derive(Transformation_CreateDate = currentTimestamp(),\n\t\tSource_CreateDate = ConditionReportSource@CreateDate,\n\t\tSource_ModifiedDate = ModifiedDate,\n\t\tSourceId = ConditionReportSource@Id,\n\t\tSourceMessageLogId = ConditionReportSource@MessageLogId,\n\t\tTrim = replace(Trim,'\"',''),\n\t\tBBOL_Response = toBase64(BBOL_Response)) ~> DerivedColumn3\nConditionReportParse split(!isNull(toLong(LeadId)) && !isNull(toLong(AppraisalVehicleId)) && !isNull(toLong(AppraisalId)),\n\tdisjoint: false) ~> Redirection@(success, error)\nRedirection@error derive(Transformation_CreateDate = currentTimestamp()) ~> DerivedColumn4\nAppraisalDetailsJoin, MessageLog join(ConditionReportSource@MessageLogId == MessageLog@MessageLogId,\n\tjoinType:'inner',\n\tmatchType:'exact',\n\tignoreSpaces: false,\n\tbroadcast: 'auto')~> MessageLogJoin\nMessageLogJoin, Compass join(ConditionReportSource@AppraisalId == Compass_Event_Id,\n\tjoinType:'left',\n\tmatchType:'exact',\n\tignoreSpaces: false,\n\tbroadcast: 'auto')~> CompassJoin\nDerivedColumn3 sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:true,\n\tupdateable:false,\n\tupsertable:false,\n\tformat: 'table',\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\terrorHandlingOption: 'allErrors',\n\ttransactionCommit: 'batch',\n\treportSuccessOnError: false) ~> TransformDestinationSink\nDerivedColumn4 sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:true,\n\tupdateable:false,\n\tupsertable:false,\n\tformat: 'table',\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\terrorHandlingOption: 'stopOnFirstError',\n\tmapColumn(\n\t\tId,\n\t\tAppraisalVehicleId,\n\t\tRequest,\n\t\tSource,\n\t\tCDKApprasialValue,\n\t\tCreateDate,\n\t\tModifiedDate,\n\t\tAppraisalId,\n\t\tMessageLogId,\n\t\tLeadId,\n\t\tHyperionId,\n\t\tBPOLAdjustedValue,\n\t\tANAdjustedValues,\n\t\tRuleExecuted,\n\t\tRunId,\n\t\tTransformation_Status,\n\t\tTransformation_CreateDate\n\t)) ~> ErrorSink"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/dsJSONDestinationConditionReportStaging')]",
+				"[concat(variables('factoryId'), '/datasets/dsJSONDestinationTradeInVehicleDetailsStaging')]",
+				"[concat(variables('factoryId'), '/datasets/dsJSONDestinationAppraisalDetailsStaging')]",
+				"[concat(variables('factoryId'), '/datasets/dsMessageLogFlattenStaging')]",
+				"[concat(variables('factoryId'), '/datasets/dsJSONDestinationComapassLeadAppraisal')]",
+				"[concat(variables('factoryId'), '/datasets/dsTransformationLeadAppraisal')]",
+				"[concat(variables('factoryId'), '/datasets/dsError')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DFANCOMMessageLogJSON')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"folder": {
+					"name": "WBYCDataExtract-JSON"
+				},
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "dsJSONDestinationMessageLog",
+								"type": "DatasetReference"
+							},
+							"name": "source1"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "dsMessageLogFlattenStaging",
+								"type": "DatasetReference"
+							},
+							"name": "sink1"
+						}
+					],
+					"transformations": [
+						{
+							"name": "Parse1"
+						},
+						{
+							"name": "DerivedColumn1"
+						},
+						{
+							"name": "DerivedColumn2"
+						}
+					],
+					"script": "source(output(\n\t\tId as long,\n\t\tRequest as string,\n\t\tResponse as string,\n\t\tHttpStatus as string,\n\t\tCreateDate as timestamp,\n\t\tTradeInVehicleDetails as string\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tformat: 'table') ~> source1\nsource1 parse(mileage_list = Response ? (bbresult as (used_vehicles as (used_vehicle_list as (used_vehicle as (mileage_list as (mileage as (model_year as string,\n\t\trange_begin as string,\n\t\trange_end as string,\n\t\txclean as string,\n\t\tclean as string,\n\t\tavg as string,\n\t\trough as string,\n\t\tfinadv as string,\n\t\tmileage_cat as string))))))),\n\t\tusedvehicle_list = Response ? (bbresult as (used_vehicles as (used_vehicle_list as (used_vehicle as (base_whole_xclean as string,\n\t\tmileage_whole_xclean as string,\n\t\tadd_deduct_whole_xclean as string,\n\t\tregional_whole_xclean as string,\n\t\thistory_whole_xclean as string,\n\t\tnon_history_adjusted_whole_xclean as string,\n\t\thistory_adjusted_whole_xclean as string,\n\t\tbase_whole_clean as string,\n\t\tmileage_whole_clean as string,\n\t\tadd_deduct_whole_clean as string,\n\t\tregional_whole_clean as string,\n\t\thistory_whole_clean as string,\n\t\tnon_history_adjusted_whole_clean as string,\n\t\thistory_adjusted_whole_clean as string,\n\t\tbase_whole_avg as string,\n\t\tmileage_whole_avg as string,\n\t\tadd_deduct_whole_avg as string,\n\t\tregional_whole_avg as string,\n\t\thistory_whole_avg as string,\n\t\tnon_history_adjusted_whole_avg as string,\n\t\thistory_adjusted_whole_avg as string,\n\t\tbase_whole_rough as string,\n\t\tmileage_whole_rough as string,\n\t\tadd_deduct_whole_rough as string,\n\t\tregional_whole_rough as string,\n\t\thistory_whole_rough as string,\n\t\tnon_history_adjusted_whole_rough as string,\n\t\thistory_adjusted_whole_rough as string,\n\t\tbase_retail_xclean as string,\n\t\tmileage_retail_xclean as string,\n\t\tadd_deduct_retail_xclean as string,\n\t\tregional_retail_xclean as string,\n\t\thistory_retail_xclean as string,\n\t\tnon_history_adjusted_retail_xclean as string,\n\t\thistory_adjusted_retail_xclean as string,\n\t\tbase_retail_clean as string,\n\t\tmileage_retail_clean as string,\n\t\tadd_deduct_retail_clean as string,\n\t\tregional_retail_clean as string,\n\t\thistory_retail_clean as string,\n\t\tnon_history_adjusted_retail_clean as string,\n\t\thistory_adjusted_retail_clean as string,\n\t\tbase_retail_avg as string,\n\t\tmileage_retail_avg as string,\n\t\tadd_deduct_retail_avg as string,\n\t\tregional_retail_avg as string,\n\t\thistory_retail_avg as string,\n\t\tnon_history_adjusted_retail_avg as string,\n\t\thistory_adjusted_retail_avg as string,\n\t\tbase_retail_rough as string,\n\t\tmileage_retail_rough as string,\n\t\tadd_deduct_retail_rough as string,\n\t\tregional_retail_rough as string,\n\t\thistory_retail_rough as string,\n\t\tnon_history_adjusted_retail_rough as string,\n\t\thistory_adjusted_retail_rough as string,\n\t\tbase_tradein_clean as string,\n\t\tmileage_tradein_clean as string,\n\t\tadd_deduct_tradein_clean as string,\n\t\tregional_tradein_clean as string,\n\t\thistory_tradein_clean as string,\n\t\tnon_history_adjusted_tradein_clean as string,\n\t\thistory_adjusted_tradein_clean as string,\n\t\tbase_tradein_avg as string,\n\t\tmileage_tradein_avg as string,\n\t\tadd_deduct_tradein_avg as string,\n\t\tregional_tradein_avg as string,\n\t\thistory_tradein_avg as string,\n\t\tnon_history_adjusted_tradein_avg as string,\n\t\thistory_adjusted_tradein_avg as string,\n\t\tbase_tradein_rough as string,\n\t\tmileage_tradein_rough as string,\n\t\tadd_deduct_tradein_rough as string,\n\t\tregional_tradein_rough as string,\n\t\thistory_tradein_rough as string,\n\t\tnon_history_adjusted_tradein_rough as string,\n\t\thistory_adjusted_tradein_rough as string,\n\t\tbase_finadv as string,\n\t\tmileage_finadv as string,\n\t\tadd_deduct_finadv as string,\n\t\tregional_finadv as string,\n\t\tadjusted_finadv as string,\n\t\tbase_resid12 as string,\n\t\tmileage_resid12 as string,\n\t\tadd_deduct_resid12 as string,\n\t\tadjusted_resid12 as string,\n\t\tbase_resid24 as string,\n\t\tmileage_resid24 as string,\n\t\tadd_deduct_resid24 as string,\n\t\tadjusted_resid24 as string,\n\t\tbase_resid30 as string,\n\t\tmileage_resid30 as string,\n\t\tadd_deduct_resid30 as string,\n\t\tadjusted_resid30 as string,\n\t\tbase_resid36 as string,\n\t\tmileage_resid36 as string,\n\t\tadd_deduct_resid36 as string,\n\t\tadjusted_resid36 as string,\n\t\tbase_resid42 as string,\n\t\tmileage_resid42 as string,\n\t\tadd_deduct_resid42 as string,\n\t\tadjusted_resid42 as string,\n\t\tbase_resid48 as string,\n\t\tmileage_resid48 as string,\n\t\tadd_deduct_resid48 as string,\n\t\tadjusted_resid48 as string,\n\t\tbase_resid60 as string,\n\t\tmileage_resid60 as string,\n\t\tadd_deduct_resid60 as string,\n\t\tadjusted_resid60 as string,\n\t\tbase_resid72 as string,\n\t\tmileage_resid72 as string,\n\t\tadd_deduct_resid72 as string,\n\t\tadjusted_resid72 as string,\n\t\tmsrp as string,\n\t\tretail_equipped as string,\n\t\tprice_includes as string,\n\t\twheel_base as string,\n\t\ttire_size as string,\n\t\tgvw as string,\n\t\tseat_cap as string,\n\t\tfuel_type as string,\n\t\tfuel_cap as string,\n\t\tfuel_delivery as string,\n\t\thwy_mpg as string,\n\t\tcity_mpg as string,\n\t\tengine_description as string,\n\t\tcylinders as string,\n\t\tengine_displacement as string,\n\t\tbase_hp as string,\n\t\ttaxable_hp as string,\n\t\ttorque as string,\n\t\toil_cap as string,\n\t\ttransmission as string,\n\t\tdrivetrain as string,\n\t\tnum_gears as string,\n\t\text_doors as string,\n\t\tairbags as string,\n\t\tanti_corrosion_warranty as string,\n\t\tbasic_warranty as string,\n\t\tpowertrain_warranty as string,\n\t\troad_assist_warranty as string))))),\n\tformat: 'json',\n\tdocumentForm: 'singleDocument') ~> Parse1\nParse1 derive(mileage_whole_xclean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_whole_xclean,\n\t\tadd_deduct_whole_xclean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.add_deduct_whole_xclean,\n\t\tregional_whole_xclean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.regional_whole_xclean,\n\t\thistory_whole_xclean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.history_whole_xclean,\n\t\tnon_history_adjusted_whole_xclean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.non_history_adjusted_whole_xclean,\n\t\thistory_adjusted_whole_xclean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.history_adjusted_whole_xclean,\n\t\tbase_whole_clean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.base_whole_clean,\n\t\tmileage_whole_clean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_whole_clean,\n\t\tadd_deduct_whole_clean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.add_deduct_whole_clean,\n\t\tregional_whole_clean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.regional_whole_clean,\n\t\thistory_whole_clean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.history_whole_clean,\n\t\tnon_history_adjusted_whole_clean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.non_history_adjusted_whole_clean,\n\t\thistory_adjusted_whole_clean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.history_adjusted_whole_clean,\n\t\tbase_whole_avg = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.base_whole_avg,\n\t\tmileage_whole_avg = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_whole_avg,\n\t\tadd_deduct_whole_avg = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.add_deduct_whole_avg,\n\t\tregional_whole_avg = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.regional_whole_avg,\n\t\thistory_whole_avg = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.history_whole_avg,\n\t\tnon_history_adjusted_whole_avg = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.non_history_adjusted_whole_avg,\n\t\thistory_adjusted_whole_avg = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.history_adjusted_whole_avg,\n\t\tbase_whole_rough = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.base_whole_rough,\n\t\tmileage_whole_rough = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_whole_rough,\n\t\tadd_deduct_whole_rough = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.add_deduct_whole_rough,\n\t\tregional_whole_rough = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.regional_whole_rough,\n\t\thistory_whole_rough = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.history_whole_rough,\n\t\tnon_history_adjusted_whole_rough = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.non_history_adjusted_whole_rough,\n\t\thistory_adjusted_whole_rough = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.history_adjusted_whole_rough,\n\t\tbase_retail_xclean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.base_retail_xclean,\n\t\tmileage_retail_xclean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_retail_xclean,\n\t\tadd_deduct_retail_xclean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.add_deduct_retail_xclean,\n\t\tregional_retail_xclean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.regional_retail_xclean,\n\t\thistory_retail_xclean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.history_retail_xclean,\n\t\tnon_history_adjusted_retail_xclean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.non_history_adjusted_retail_xclean,\n\t\thistory_adjusted_retail_xclean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.history_adjusted_retail_xclean,\n\t\tbase_retail_clean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.base_retail_clean,\n\t\tmileage_retail_clean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_retail_clean,\n\t\tadd_deduct_retail_clean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.add_deduct_retail_clean,\n\t\tregional_retail_clean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.regional_retail_clean,\n\t\thistory_retail_clean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.history_retail_clean,\n\t\tnon_history_adjusted_retail_clean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.non_history_adjusted_retail_clean,\n\t\thistory_adjusted_retail_clean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.history_adjusted_retail_clean,\n\t\tbase_retail_avg = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.base_retail_avg,\n\t\tmileage_retail_avg = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_retail_avg,\n\t\tadd_deduct_retail_avg = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.add_deduct_retail_avg,\n\t\tregional_retail_avg = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.regional_retail_avg,\n\t\thistory_retail_avg = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.history_retail_avg,\n\t\tnon_history_adjusted_retail_avg = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.non_history_adjusted_retail_avg,\n\t\thistory_adjusted_retail_avg = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.history_adjusted_retail_avg,\n\t\tbase_retail_rough = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.base_retail_rough,\n\t\tmileage_retail_rough = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_retail_rough,\n\t\tadd_deduct_retail_rough = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.add_deduct_retail_rough,\n\t\tregional_retail_rough = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.regional_retail_rough,\n\t\thistory_retail_rough = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.history_retail_rough,\n\t\tnon_history_adjusted_retail_rough = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.non_history_adjusted_retail_rough,\n\t\thistory_adjusted_retail_rough = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.history_adjusted_retail_rough,\n\t\tbase_tradein_clean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.base_tradein_clean,\n\t\tmileage_tradein_clean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_tradein_clean,\n\t\tadd_deduct_tradein_clean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.add_deduct_tradein_clean,\n\t\tregional_tradein_clean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.regional_tradein_clean,\n\t\thistory_tradein_clean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.history_tradein_clean,\n\t\tnon_history_adjusted_tradein_clean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.non_history_adjusted_tradein_clean,\n\t\thistory_adjusted_tradein_clean = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.history_adjusted_tradein_clean,\n\t\tbase_tradein_avg = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.base_tradein_avg,\n\t\tmileage_tradein_avg = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_tradein_avg,\n\t\tadd_deduct_tradein_avg = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.add_deduct_tradein_avg,\n\t\tregional_tradein_avg = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.regional_tradein_avg,\n\t\thistory_tradein_avg = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.history_tradein_avg,\n\t\tnon_history_adjusted_tradein_avg = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.non_history_adjusted_tradein_avg,\n\t\thistory_adjusted_tradein_avg = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.history_adjusted_tradein_avg,\n\t\tbase_tradein_rough = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.base_tradein_rough,\n\t\tmileage_tradein_rough = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_tradein_rough,\n\t\tadd_deduct_tradein_rough = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.add_deduct_tradein_rough,\n\t\tregional_tradein_rough = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.regional_tradein_rough,\n\t\thistory_tradein_rough = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.history_tradein_rough,\n\t\tnon_history_adjusted_tradein_rough = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.non_history_adjusted_tradein_rough,\n\t\thistory_adjusted_tradein_rough = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.history_adjusted_tradein_rough,\n\t\tbase_finadv = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.base_finadv,\n\t\tmileage_finadv = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle. mileage_finadv,\n\t\tadd_deduct_finadv = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.add_deduct_finadv,\n\t\tregional_finadv = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.regional_finadv,\n\t\tadjusted_finadv = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.adjusted_finadv,\n\t\tbase_resid12 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.base_resid12,\n\t\tmileage_resid12 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_resid12,\n\t\tadd_deduct_resid12 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.add_deduct_resid12,\n\t\tadjusted_resid12 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.adjusted_resid12,\n\t\tbase_resid24 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.base_resid24,\n\t\tmileage_resid24 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_resid24,\n\t\tadd_deduct_resid24 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.add_deduct_resid24,\n\t\tadjusted_resid24 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.adjusted_resid24,\n\t\tbase_resid30 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.base_resid30,\n\t\tmileage_resid30 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_resid30,\n\t\tadd_deduct_resid30 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.add_deduct_resid30,\n\t\tadjusted_resid30 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.adjusted_resid30,\n\t\tbase_resid36 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.base_resid36,\n\t\tmileage_resid36 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_resid36,\n\t\tadd_deduct_resid36 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.add_deduct_resid36,\n\t\tadjusted_resid36 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.adjusted_resid36,\n\t\tbase_resid42 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.base_resid42,\n\t\tmileage_resid42 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_resid42,\n\t\tadd_deduct_resid42 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.add_deduct_resid42,\n\t\tadjusted_resid42 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.adjusted_resid42,\n\t\tbase_resid48 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.base_resid48,\n\t\tmileage_resid48 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_resid48,\n\t\tadd_deduct_resid48 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.add_deduct_resid48,\n\t\tadjusted_resid48 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.adjusted_resid48,\n\t\tbase_resid60 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.base_resid60,\n\t\tmileage_resid60 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_resid60,\n\t\tadd_deduct_resid60 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.add_deduct_resid60,\n\t\tadjusted_resid60 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.adjusted_resid60,\n\t\tbase_resid72 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.base_resid72,\n\t\tmileage_resid72 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_resid72,\n\t\tadd_deduct_resid72 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.add_deduct_resid72,\n\t\tadjusted_resid72 = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.adjusted_resid72,\n\t\tmsrp = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.msrp,\n\t\tretail_equipped = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.retail_equipped,\n\t\tprice_includes = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.price_includes,\n\t\twheel_base = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.wheel_base,\n\t\ttire_size = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.tire_size,\n\t\tgvw = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.gvw,\n\t\tseat_cap = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.seat_cap,\n\t\tfuel_type = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.fuel_type,\n\t\tfuel_cap = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.fuel_cap,\n\t\tfuel_delivery = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.fuel_delivery,\n\t\thwy_mpg = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.hwy_mpg,\n\t\tcity_mpg = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.city_mpg,\n\t\tengine_description = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.engine_description,\n\t\tcylinders = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.cylinders,\n\t\tengine_displacement = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.engine_displacement,\n\t\tbase_hp = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.base_hp,\n\t\ttaxable_hp = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.taxable_hp,\n\t\ttorque = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.torque,\n\t\toil_cap = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.oil_cap,\n\t\ttransmission = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.transmission,\n\t\tdrivetrain = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.drivetrain,\n\t\tnum_gears = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.num_gears,\n\t\text_doors = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.ext_doors,\n\t\tairbags = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.airbags,\n\t\tanti_corrosion_warranty = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.anti_corrosion_warranty,\n\t\tbasic_warranty = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.basic_warranty,\n\t\tpowertrain_warranty = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.powertrain_warranty,\n\t\troad_assist_warranty = usedvehicle_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.road_assist_warranty,\n\t\tmodel_year = mileage_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_list.mileage.model_year,\n\t\trange_begin = mileage_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_list.mileage.range_begin,\n\t\trange_end = mileage_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_list.mileage.range_end,\n\t\txclean = mileage_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_list.mileage.xclean,\n\t\tclean = mileage_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_list.mileage.clean,\n\t\tavg = mileage_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_list.mileage.avg,\n\t\trough = mileage_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_list.mileage.rough,\n\t\tfinadv = mileage_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_list.mileage.finadv,\n\t\tmileage_cat = mileage_list.bbresult.used_vehicles.used_vehicle_list.used_vehicle.mileage_list.mileage.mileage_cat) ~> DerivedColumn1\nDerivedColumn1 derive(each(match(!isNull(name)), 'BBOL_'+replace(initCap(replace($$,'_',' ')),' ','_') = $$)) ~> DerivedColumn2\nDerivedColumn2 sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:true,\n\tupdateable:false,\n\tupsertable:false,\n\tformat: 'table',\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\terrorHandlingOption: 'stopOnFirstError',\n\tmapColumn(\n\t\tMessageLogId = BBOL_Id,\n\t\tBBOL_Request,\n\t\tBBOL_Response,\n\t\tBBOL_Httpstatus,\n\t\tBBOL_Createdate,\n\t\tBBOL_Tradeinvehicledetails,\n\t\tBBOL_Mileage_Whole_Xclean,\n\t\tBBOL_Add_Deduct_Whole_Xclean,\n\t\tBBOL_Regional_Whole_Xclean,\n\t\tBBOL_History_Whole_Xclean,\n\t\tBBOL_Non_History_Adjusted_Whole_Xclean,\n\t\tBBOL_History_Adjusted_Whole_Xclean,\n\t\tBBOL_Base_Whole_Clean,\n\t\tBBOL_Mileage_Whole_Clean,\n\t\tBBOL_Add_Deduct_Whole_Clean,\n\t\tBBOL_Regional_Whole_Clean,\n\t\tBBOL_History_Whole_Clean,\n\t\tBBOL_Non_History_Adjusted_Whole_Clean,\n\t\tBBOL_History_Adjusted_Whole_Clean,\n\t\tBBOL_Base_Whole_Avg,\n\t\tBBOL_Mileage_Whole_Avg,\n\t\tBBOL_Add_Deduct_Whole_Avg,\n\t\tBBOL_Regional_Whole_Avg,\n\t\tBBOL_History_Whole_Avg,\n\t\tBBOL_Non_History_Adjusted_Whole_Avg,\n\t\tBBOL_History_Adjusted_Whole_Avg,\n\t\tBBOL_Base_Whole_Rough,\n\t\tBBOL_Mileage_Whole_Rough,\n\t\tBBOL_Add_Deduct_Whole_Rough,\n\t\tBBOL_Regional_Whole_Rough,\n\t\tBBOL_History_Whole_Rough,\n\t\tBBOL_Non_History_Adjusted_Whole_Rough,\n\t\tBBOL_History_Adjusted_Whole_Rough,\n\t\tBBOL_Base_Retail_Xclean,\n\t\tBBOL_Mileage_Retail_Xclean,\n\t\tBBOL_Add_Deduct_Retail_Xclean,\n\t\tBBOL_Regional_Retail_Xclean,\n\t\tBBOL_History_Retail_Xclean,\n\t\tBBOL_Non_History_Adjusted_Retail_Xclean,\n\t\tBBOL_History_Adjusted_Retail_Xclean,\n\t\tBBOL_Base_Retail_Clean,\n\t\tBBOL_Mileage_Retail_Clean,\n\t\tBBOL_Add_Deduct_Retail_Clean,\n\t\tBBOL_Regional_Retail_Clean,\n\t\tBBOL_History_Retail_Clean,\n\t\tBBOL_Non_History_Adjusted_Retail_Clean,\n\t\tBBOL_History_Adjusted_Retail_Clean,\n\t\tBBOL_Base_Retail_Avg,\n\t\tBBOL_Mileage_Retail_Avg,\n\t\tBBOL_Add_Deduct_Retail_Avg,\n\t\tBBOL_Regional_Retail_Avg,\n\t\tBBOL_History_Retail_Avg,\n\t\tBBOL_Non_History_Adjusted_Retail_Avg,\n\t\tBBOL_History_Adjusted_Retail_Avg,\n\t\tBBOL_Base_Retail_Rough,\n\t\tBBOL_Mileage_Retail_Rough,\n\t\tBBOL_Add_Deduct_Retail_Rough,\n\t\tBBOL_Regional_Retail_Rough,\n\t\tBBOL_History_Retail_Rough,\n\t\tBBOL_Non_History_Adjusted_Retail_Rough,\n\t\tBBOL_History_Adjusted_Retail_Rough,\n\t\tBBOL_Base_Tradein_Clean,\n\t\tBBOL_Mileage_Tradein_Clean,\n\t\tBBOL_Add_Deduct_Tradein_Clean,\n\t\tBBOL_Regional_Tradein_Clean,\n\t\tBBOL_History_Tradein_Clean,\n\t\tBBOL_Non_History_Adjusted_Tradein_Clean,\n\t\tBBOL_History_Adjusted_Tradein_Clean,\n\t\tBBOL_Base_Tradein_Avg,\n\t\tBBOL_Mileage_Tradein_Avg,\n\t\tBBOL_Add_Deduct_Tradein_Avg,\n\t\tBBOL_Regional_Tradein_Avg,\n\t\tBBOL_History_Tradein_Avg,\n\t\tBBOL_Non_History_Adjusted_Tradein_Avg,\n\t\tBBOL_History_Adjusted_Tradein_Avg,\n\t\tBBOL_Base_Tradein_Rough,\n\t\tBBOL_Mileage_Tradein_Rough,\n\t\tBBOL_Add_Deduct_Tradein_Rough,\n\t\tBBOL_Regional_Tradein_Rough,\n\t\tBBOL_History_Tradein_Rough,\n\t\tBBOL_Non_History_Adjusted_Tradein_Rough,\n\t\tBBOL_History_Adjusted_Tradein_Rough,\n\t\tBBOL_Base_Finadv,\n\t\tBBOL_Mileage_Finadv,\n\t\tBBOL_Add_Deduct_Finadv,\n\t\tBBOL_Regional_Finadv,\n\t\tBBOL_Adjusted_Finadv,\n\t\tBBOL_Base_Resid12,\n\t\tBBOL_Mileage_Resid12,\n\t\tBBOL_Add_Deduct_Resid12,\n\t\tBBOL_Adjusted_Resid12,\n\t\tBBOL_Base_Resid24,\n\t\tBBOL_Mileage_Resid24,\n\t\tBBOL_Add_Deduct_Resid24,\n\t\tBBOL_Adjusted_Resid24,\n\t\tBBOL_Base_Resid30,\n\t\tBBOL_Mileage_Resid30,\n\t\tBBOL_Add_Deduct_Resid30,\n\t\tBBOL_Adjusted_Resid30,\n\t\tBBOL_Base_Resid36,\n\t\tBBOL_Mileage_Resid36,\n\t\tBBOL_Add_Deduct_Resid36,\n\t\tBBOL_Adjusted_Resid36,\n\t\tBBOL_Base_Resid42,\n\t\tBBOL_Mileage_Resid42,\n\t\tBBOL_Add_Deduct_Resid42,\n\t\tBBOL_Adjusted_Resid42,\n\t\tBBOL_Base_Resid48,\n\t\tBBOL_Mileage_Resid48,\n\t\tBBOL_Add_Deduct_Resid48,\n\t\tBBOL_Adjusted_Resid48,\n\t\tBBOL_Base_Resid60,\n\t\tBBOL_Mileage_Resid60,\n\t\tBBOL_Add_Deduct_Resid60,\n\t\tBBOL_Adjusted_Resid60,\n\t\tBBOL_Base_Resid72,\n\t\tBBOL_Mileage_Resid72,\n\t\tBBOL_Add_Deduct_Resid72,\n\t\tBBOL_Adjusted_Resid72,\n\t\tBBOL_Msrp,\n\t\tBBOL_Retail_Equipped,\n\t\tBBOL_Price_Includes,\n\t\tBBOL_Wheel_Base,\n\t\tBBOL_Tire_Size,\n\t\tBBOL_Gvw,\n\t\tBBOL_Seat_Cap,\n\t\tBBOL_Fuel_Type,\n\t\tBBOL_Fuel_Cap,\n\t\tBBOL_Fuel_Delivery,\n\t\tBBOL_Hwy_Mpg,\n\t\tBBOL_City_Mpg,\n\t\tBBOL_Engine_Description,\n\t\tBBOL_Cylinders,\n\t\tBBOL_Engine_Displacement,\n\t\tBBOL_Base_Hp,\n\t\tBBOL_Taxable_Hp,\n\t\tBBOL_Torque,\n\t\tBBOL_Oil_Cap,\n\t\tBBOL_Transmission,\n\t\tBBOL_Drivetrain,\n\t\tBBOL_Num_Gears,\n\t\tBBOL_Ext_Doors,\n\t\tBBOL_Airbags,\n\t\tBBOL_Anti_Corrosion_Warranty,\n\t\tBBOL_Basic_Warranty,\n\t\tBBOL_Powertrain_Warranty,\n\t\tBBOL_Road_Assist_Warranty,\n\t\tBBOL_Model_Year,\n\t\tBBOL_Range_Begin,\n\t\tBBOL_Range_End,\n\t\tBBOL_Xclean,\n\t\tBBOL_Clean,\n\t\tBBOL_Avg,\n\t\tBBOL_Rough,\n\t\tBBOL_Finadv,\n\t\tBBOL_Mileage_Cat\n\t)) ~> sink1"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/dsJSONDestinationMessageLog')]",
+				"[concat(variables('factoryId'), '/datasets/dsMessageLogFlattenStaging')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dfxml')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"folder": {
+					"name": "WBYCDataExtract-XML"
+				},
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "dsDestinationLeadAppraisalStaging",
+								"type": "DatasetReference"
+							},
+							"name": "Leadappraisalstaging"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "dsTransformationLeadAppraisal",
+								"type": "DatasetReference"
+							},
+							"name": "sinkleadaapraisaltransformation"
+						}
+					],
+					"transformations": [
+						{
+							"name": "ParseXml"
+						},
+						{
+							"name": "DerivedColumnkey"
+						},
+						{
+							"name": "FlattenIndicators"
+						},
+						{
+							"name": "PivotIndicatorkey"
+						},
+						{
+							"name": "Join1"
+						}
+					],
+					"script": "source(output(\n\t\tlead_id as integer,\n\t\tevent_id as long,\n\t\tvehicle_id as integer,\n\t\tVIN as string,\n\t\tcondition_report_xml as string,\n\t\tappraisal_amount as string,\n\t\tcreation_dt as timestamp\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tbatchSize: 1,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tformat: 'table') ~> Leadappraisalstaging\nLeadappraisalstaging parse(condition_report_xml = condition_report_xml ? (conditionReport as (inquirygroups as (inquirygroup as (inquiries as( inquiry as(querytext as string,response as(conditionindicators\r\n             as(conditionindicator as(key as string, value as string))[]))[])[])[])[])),\n\tformat: 'xml',\n\tnullValue: 'N/A',\n\tnamespaces: true) ~> ParseXml\nFlattenIndicators derive(conditionindicatorkey = iif(querytext == 'Paint Condition' || querytext == 'Body Condition' || querytext == 'Seat Condition', querytext + '-' + key, querytext)) ~> DerivedColumnkey\nParseXml foldDown(unroll(condition_report_xml.conditionReport.inquirygroups.inquirygroup.inquiries.inquiry.response.conditionindicators, condition_report_xml.conditionReport.inquirygroups.inquirygroup.inquiries.inquiry.response.conditionindicators),\n\tmapColumn(\n\t\tlead_id,\n\t\tevent_id,\n\t\tvehicle_id,\n\t\tVIN,\n\t\tquerytext = condition_report_xml.conditionReport.inquirygroups.inquirygroup.inquiries.inquiry.querytext,\n\t\tkey = condition_report_xml.conditionReport.inquirygroups.inquirygroup.inquiries.inquiry.response.conditionindicators.conditionindicator.key,\n\t\tvalue = condition_report_xml.conditionReport.inquirygroups.inquirygroup.inquiries.inquiry.response.conditionindicators.conditionindicator.value,\n\t\tappraisal_amount,\n\t\tcreation_dt\n\t),\n\tskipDuplicateMapInputs: false,\n\tskipDuplicateMapOutputs: false) ~> FlattenIndicators\nDerivedColumnkey pivot(groupBy(lead_id,\n\t\tevent_id,\n\t\tvehicle_id),\n\tpivotBy(conditionindicatorkey),\n\t{} = first(value),\n\tcolumnNaming: '$N$V',\n\tlateral: true) ~> PivotIndicatorkey\nPivotIndicatorkey, Leadappraisalstaging join(PivotIndicatorkey@lead_id == Leadappraisalstaging@lead_id,\n\tjoinType:'inner',\n\tmatchType:'exact',\n\tignoreSpaces: false,\n\tbroadcast: 'auto')~> Join1\nJoin1 sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:true,\n\tupdateable:false,\n\tupsertable:false,\n\tformat: 'table',\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\terrorHandlingOption: 'stopOnFirstError') ~> sinkleadaapraisaltransformation"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/dsDestinationLeadAppraisalStaging')]",
+				"[concat(variables('factoryId'), '/datasets/dsTransformationLeadAppraisal')]"
+			]
+		}
+	]
+}

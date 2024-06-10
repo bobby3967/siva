@@ -1,0 +1,24 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"value": "avis-adf"
+		},
+		"AzureBlobLinkedService_connectionString": {
+			"value": ""
+		},
+		"DSFDB_connectionString": {
+			"value": ""
+		},
+		"WBYCDataExtractDB_connectionString": {
+			"value": ""
+		},
+		"containerUri": {
+			"value": ""
+		},
+		"containerSasToken": {
+			"value": ""
+		}
+	}
+}

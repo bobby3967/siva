@@ -1,0 +1,901 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "avis-adf"
+		},
+		"AzureBlobLinkedService_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'AzureBlobLinkedService'"
+		},
+		"DSFDB_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'DSFDB'"
+		},
+		"WBYCDataExtractDB_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'WBYCDataExtractDB'"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/AzureBlobLinkedService')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobStorage",
+				"typeProperties": {
+					"connectionString": "[parameters('AzureBlobLinkedService_connectionString')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DSFDB')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureSqlDatabase",
+				"typeProperties": {
+					"connectionString": "[parameters('DSFDB_connectionString')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/WBYCDataExtractDB')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureSqlDatabase",
+				"typeProperties": {
+					"connectionString": "[parameters('WBYCDataExtractDB_connectionString')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsANCSV')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureBlobLinkedService",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"csvrunid": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobStorageLocation",
+						"fileName": {
+							"value": "@concat(\n'ANCOM_ConditionReport_',\nutcnow(),\n'_',\ndataset().csvrunid,\n'.csv'\n)",
+							"type": "Expression"
+						},
+						"folderPath": "b",
+						"container": "abc"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"nullValue": "N/A",
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/AzureBlobLinkedService')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsAppraisalTransformation')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "WBYCDataExtractDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "appraisal_transformation"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/WBYCDataExtractDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsApraisalDetails')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "DSFDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "Id",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "AppraisalVehicleId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "Wholesale",
+						"type": "varchar"
+					},
+					{
+						"name": "Retail",
+						"type": "varchar"
+					},
+					{
+						"name": "TradeIn",
+						"type": "varchar"
+					},
+					{
+						"name": "FinanceAdvance",
+						"type": "money",
+						"precision": 19,
+						"scale": 4
+					},
+					{
+						"name": "Residual",
+						"type": "money",
+						"precision": 19,
+						"scale": 4
+					},
+					{
+						"name": "HistoryAdjusted",
+						"type": "money",
+						"precision": 19,
+						"scale": 4
+					},
+					{
+						"name": "ValueAdjustment",
+						"type": "money",
+						"precision": 19,
+						"scale": 4
+					},
+					{
+						"name": "CreateDate",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					},
+					{
+						"name": "AdditionalDetails",
+						"type": "varchar"
+					}
+				],
+				"typeProperties": {
+					"schema": "Integration",
+					"table": "InstantAppraisalAppraisalDetails"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/DSFDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsConditionReport')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "DSFDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "Id",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "AppraisalVehicleId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "Request",
+						"type": "varchar"
+					},
+					{
+						"name": "Source",
+						"type": "varchar"
+					},
+					{
+						"name": "CDKApprasialValue",
+						"type": "money",
+						"precision": 19,
+						"scale": 4
+					},
+					{
+						"name": "CreateDate",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					},
+					{
+						"name": "ModifiedDate",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					},
+					{
+						"name": "AppraisalId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "MessageLogId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "LeadId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "HyperionId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "BPOLAdjustedValue",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "ANAdjustedValues",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "RuleExecuted",
+						"type": "varchar"
+					}
+				],
+				"typeProperties": {
+					"schema": "Integration",
+					"table": "InstantAppraisalConditionReport"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/DSFDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsDestinationLeadAppraisalStaging')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "WBYCDataExtractDB",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "lead_id",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "event_id",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "vehicle_id",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "VIN",
+						"type": "varchar"
+					},
+					{
+						"name": "condition_report_xml",
+						"type": "text"
+					},
+					{
+						"name": "appraisal_amount",
+						"type": "varchar"
+					},
+					{
+						"name": "creation_dt",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "temp_lead_appraisal_staging"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/WBYCDataExtractDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsError')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "WBYCDataExtractDB",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "error_transformation"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/WBYCDataExtractDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsIncrementalProcess')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "DSFDB",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "tablename",
+						"type": "varchar"
+					},
+					{
+						"name": "processtime",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					}
+				],
+				"typeProperties": {
+					"schema": "integration",
+					"table": "jobs"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/DSFDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsJSONDestinationAppraisalDetailsStaging')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "WBYCDataExtractDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "temp_appraisaldetails_staging"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/WBYCDataExtractDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsJSONDestinationComapassLeadAppraisal')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "WBYCDataExtractDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "temp_compassleadappraisal_staging"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/WBYCDataExtractDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsJSONDestinationConditionReportStaging')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "WBYCDataExtractDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "Id",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "AppraisalVehicleId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "Request",
+						"type": "varchar"
+					},
+					{
+						"name": "Source",
+						"type": "varchar"
+					},
+					{
+						"name": "CDKApprasialValue",
+						"type": "money",
+						"precision": 19,
+						"scale": 4
+					},
+					{
+						"name": "CreateDate",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					},
+					{
+						"name": "ModifiedDate",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					},
+					{
+						"name": "AppraisalId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "MessageLogId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "LeadId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "HyperionId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "BPOLAdjustedValue",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "ANAdjustedValues",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "RuleExecuted",
+						"type": "varchar"
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "temp_conditionreport_staging"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/WBYCDataExtractDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsJSONDestinationMessageLog')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "WBYCDataExtractDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "temp_messagelog_staging"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/WBYCDataExtractDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsJSONDestinationTradeInVehicleDetailsStaging')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "WBYCDataExtractDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "temp_tradeInvehicledetails_staging"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/WBYCDataExtractDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsJobsJSON')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "DSFDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "JobName",
+						"type": "varchar"
+					},
+					{
+						"name": "Status",
+						"type": "bit"
+					},
+					{
+						"name": "StartDate",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					},
+					{
+						"name": "LastRunTime",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					}
+				],
+				"typeProperties": {
+					"schema": "Integration",
+					"table": "Jobs"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/DSFDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsMessageLog')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "DSFDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "Id",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "Request",
+						"type": "varchar"
+					},
+					{
+						"name": "Response",
+						"type": "varchar"
+					},
+					{
+						"name": "HttpStatus",
+						"type": "varchar"
+					},
+					{
+						"name": "CreateDate",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					},
+					{
+						"name": "TradeInVehicleDetails",
+						"type": "nvarchar"
+					}
+				],
+				"typeProperties": {
+					"schema": "Integration",
+					"table": "InstantAppraisalMessageLog"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/DSFDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsMessageLogFlattenStaging')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "WBYCDataExtractDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "temp_messagelog_flatten_staging"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/WBYCDataExtractDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsSrcLeadAppraisal')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "WBYCDataExtractDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "XML"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "lead_id",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "event_id",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "vehicle_id",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "VIN",
+						"type": "varchar"
+					},
+					{
+						"name": "condition_report_xml",
+						"type": "text"
+					},
+					{
+						"name": "appraisal_amount",
+						"type": "varchar"
+					},
+					{
+						"name": "creation_dt",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "temp_lead_appraisal"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/WBYCDataExtractDB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dsTradeInVehicleDetails')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "DSFDB",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "Json"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "Id",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "MessageLogId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "AppraisalVehicleId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "Year",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "Make",
+						"type": "varchar"
+					},
+					{
+						"name": "Model",
+						"type": "varchar"
+					},
+					{
+						"name": "Trim",
+						"type": "varchar"
+					},
+					{
+						"name": "ExteriorColor",
+						"type": "varchar"
+					},
+					{
+						"name": "SeatColor",
+						"type": "varchar"
+					},
+					{
+						"name": "SeatMaterial",
+						"type": "varchar"
+					},
+					{
+						"name": "Mileage",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "Options",
+						"type": "varchar"
+					},
+					{
+						"name": "ZipCode",
+						"type": "varchar"
+					},
+					{
+						"name": "AllPostiveAnswers",
+						"type": "varchar"
+					},
+					{
+						"name": "CreateDate",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					},
+					{
+						"name": "AdditionalDetails",
+						"type": "varchar"
+					},
+					{
+						"name": "Vin",
+						"type": "varchar"
+					},
+					{
+						"name": "LeadId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "HyperionId",
+						"type": "bigint",
+						"precision": 19
+					},
+					{
+						"name": "ChromeStyleId",
+						"type": "bigint",
+						"precision": 19
+					}
+				],
+				"typeProperties": {
+					"schema": "Integration",
+					"table": "InstantAppraisalTradeInVehicleDetails"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/DSFDB')]"
+			]
+		}
+	]
+}
