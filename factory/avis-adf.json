@@ -1,5 +1,13 @@
 {
 	"name": "avis-adf",
+	"properties": {
+		"globalParameters": {
+			"ABC": {
+				"type": "string",
+				"value": "abc"
+			}
+		}
+	},
 	"location": "eastus",
 	"identity": {
 		"type": "SystemAssigned",
