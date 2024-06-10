@@ -75,6 +75,10 @@
 				"parameters": {
 					"csvrunid": {
 						"type": "string"
+					},
+					"ABC": {
+						"type": "string",
+						"defaultValue": "abcparam"
 					}
 				},
 				"folder": {
@@ -90,7 +94,10 @@
 							"type": "Expression"
 						},
 						"folderPath": "b",
-						"container": "abc"
+						"container": {
+							"value": "@dataset().ABC",
+							"type": "Expression"
+						}
 					},
 					"columnDelimiter": ",",
 					"escapeChar": "\\",
