@@ -22,8 +22,8 @@
 					"value": "@concat(\n'ANCOM_ConditionReport_',\nutcnow(),\n'_',\ndataset().csvrunid,\n'.csv'\n)",
 					"type": "Expression"
 				},
-				"folderPath": "UNIQUE-AzureStorage_folderPath",
-				"container": "UNIQUE-AzureStorage_folderPath"
+				"folderPath": "b",
+				"container": "abc"
 			},
 			"columnDelimiter": ",",
 			"escapeChar": "\\",
